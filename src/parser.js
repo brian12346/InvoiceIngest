@@ -46,11 +46,8 @@ function extractField(text, label, type = "string") {
 }
 
 function parseDate(str) {
-  // Handles MM/DD/YYYY and YYYY-MM-DD
   const mdy = str.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if (mdy) return `${mdy[3]}-${mdy[1].padStart(2, "0")}-${mdy[2].padStart(2, "0")}`;
-  const ymd = str.match(/(\d{4})-(\d{2})-(\d{2})/);
-  if (ymd) return str;
   return str;
 }
 
@@ -66,54 +63,70 @@ function parseDueDate(invoiceDate, termsStr, termsMapping) {
 // Line item parser
 // ---------------------------------------------------------------------------
 
+/**
+ * pdf-parse renders Wilson invoices with each line item on a SINGLE LINE:
+ *
+ *   "               1                  0 EAWRS336360U080       62.40       62.40\n"
+ *   "RUSH LITE 5 White/Black/R 8\n"
+ *
+ * So we match:  <qty> <backorder> EA<SKU> <unitPrice> <extPrice>
+ * followed by the description on the next line.
+ */
 function parseLineItems(text, lineConfig, defaultAccount) {
-  const lines = text.split("\n");
-  const items = [];
-
-  // Pattern: qty  backorder  UOM  SKU  unitPrice  extendedPrice
-  // followed by a description line like "RUSH LITE 5 White/Black/R 8"
-  const rowPattern = /^\s*(\d+)\s+(\d+)\s+EA\s+(WRS\S+)\s+([\d.]+)\s+([\d.]+)/;
+  const skuPrefix = lineConfig.skuPrefix || "WRS";
   const descPattern = new RegExp(
-    lineConfig.descriptionLine?.pattern || "^(.+)$",
+    lineConfig.descriptionLine?.pattern ||
+      "^(RUSH (?:LITE|PRO|TOUR) \\d) (.+?) ([\\d.]+)$",
     "i"
   );
-  const groups = lineConfig.descriptionLine?.groups || ["description"];
+  const groups = lineConfig.descriptionLine?.groups || ["model", "colorway", "size"];
+  const descTemplate = lineConfig.quickbooksDescription || "{model} {colorway} sz {size}";
+
+  const allItems = [];
+  const lines = text.split("\n");
+
+  // Match a line item row: qty  backorder  EA  SKU  unitPrice  extPrice
+  // pdf-parse puts them all on one line with lots of spaces
+  const rowRegex = new RegExp(
+    `^\\s*(\\d+)\\s+(\\d+)\\s+EA\\s*(${skuPrefix}\\w+)\\s+([\\d.]+)\\s+([\\d.]+)\\s*$`
+  );
 
   for (let i = 0; i < lines.length; i++) {
-    const match = lines[i].match(rowPattern);
+    const match = lines[i].match(rowRegex);
     if (!match) continue;
 
-    const [, qtyShipped, qtyBack, sku, unitPrice, extPrice] = match;
+    const [, qtyShipped, qtyBackordered, sku, unitPrice, extendedPrice] = match;
+
+    // Description is on the next line
     let description = sku;
     let parsedGroups = {};
-
-    // Look ahead for description line
     if (i + 1 < lines.length) {
       const descLine = lines[i + 1].trim();
       const descMatch = descLine.match(descPattern);
       if (descMatch) {
-        groups.forEach((g, idx) => {
-          parsedGroups[g] = descMatch[idx + 1] || "";
-        });
-        const template = lineConfig.quickbooksDescription || "{model} {colorway} sz {size}";
-        description = template.replace(/\{(\w+)\}/g, (_, k) => parsedGroups[k] || "");
-        i++; // consume description line
+        groups.forEach((g, idx) => { parsedGroups[g] = descMatch[idx + 1] || ""; });
+        description = descTemplate.replace(/\{(\w+)\}/g, (_, k) => parsedGroups[k] || "");
+        i++; // consume the description line
+      } else if (descLine.length > 0 && !descLine.match(/^\d/) && !descLine.match(/^[A-Z]{2,}\s+[A-Z]/)) {
+        // Use raw description line if pattern doesn't match
+        description = descLine;
+        i++;
       }
     }
 
-    items.push({
+    allItems.push({
       account: defaultAccount,
       description,
       sku,
       qtyShipped: parseInt(qtyShipped),
-      qtyBackordered: parseInt(qtyBack),
+      qtyBackordered: parseInt(qtyBackordered),
       unitPrice: parseFloat(unitPrice),
-      extendedPrice: parseFloat(extPrice),
+      extendedPrice: parseFloat(extendedPrice),
       ...parsedGroups,
     });
   }
 
-  return items;
+  return allItems;
 }
 
 // ---------------------------------------------------------------------------
@@ -126,10 +139,20 @@ function parseShipping(text, shippingConfig) {
   if (freeFreightKeywords.some((kw) => upper.includes(kw.toUpperCase()))) {
     return { cost: 0, note: "Free freight per invoice" };
   }
-  // Try to extract a numeric freight amount
   const match = text.match(/FREIGHT\s+\$?([\d,]+\.\d{2})/i);
   if (match) return { cost: parseFloat(match[1].replace(",", "")), note: "Parsed from invoice" };
   return { cost: defaultCost, note: "Default" };
+}
+
+// ---------------------------------------------------------------------------
+// Invoice total extractor
+// ---------------------------------------------------------------------------
+
+function extractInvoiceTotal(text) {
+  // The final page has: "TOTAL 8,116.56" or "TOTAL\n8,116.56"
+  const match = text.match(/\bTOTAL\b[\s]+([\d,]+\.\d{2})/i);
+  if (match) return parseFloat(match[1].replace(",", ""));
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -146,13 +169,22 @@ function assembleBill(invoiceText, config) {
   const dueDate = parseDueDate(header.date, terms, config.termsMapping);
   const shipping = parseShipping(invoiceText, config.shipping);
   const lineItems = parseLineItems(invoiceText, config.lineItems, config.defaultAccount);
-  const merchandise = lineItems.reduce((s, l) => s + l.extendedPrice, 0);
+  const merchandise = Math.round(lineItems.reduce((s, l) => s + l.extendedPrice, 0) * 100) / 100;
+
+  // Cross-check against invoice's stated total
+  const invoiceStatedTotal = extractInvoiceTotal(invoiceText);
+  const parsedTotal = Math.round((merchandise + shipping.cost) * 100) / 100;
+  const totalVerified = invoiceStatedTotal !== null
+    ? Math.abs(parsedTotal - invoiceStatedTotal) < 0.02
+    : null;
 
   const bill = {
     _meta: {
       vendorId: config.vendorId,
       parsedAt: new Date().toISOString(),
       status: "pending",
+      totalVerified,
+      invoiceStatedTotal: invoiceStatedTotal || null,
     },
     vendor: config.quickbooksVendorName,
     invoiceNumber: header.invoiceNumber,
@@ -164,10 +196,10 @@ function assembleBill(invoiceText, config) {
     lineItems,
     shipping,
     totals: {
-      merchandise: Math.round(merchandise * 100) / 100,
+      merchandise,
       shipping: shipping.cost,
       prepayDiscount: 0,
-      total: Math.round((merchandise + shipping.cost) * 100) / 100,
+      total: parsedTotal,
     },
     accounts: {
       merchandise: config.defaultAccount,
@@ -201,7 +233,6 @@ async function main() {
 
   console.log(`\nInvoiceIngest — parsing ${path.basename(pdfPath)}\n`);
 
-  // Extract text from PDF using pdf-parse
   let pdfText;
   try {
     const pdfParse = require("pdf-parse");
@@ -214,7 +245,6 @@ async function main() {
     process.exit(1);
   }
 
-  // Detect vendor
   const configs = loadVendorConfigs();
   const config = detectVendor(pdfText, configs);
 
@@ -224,17 +254,27 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`Vendor detected: ${config.vendorName}`);
+  console.log(`Vendor detected:  ${config.vendorName}`);
 
-  // Build bill
   const bill = assembleBill(pdfText, config);
 
-  console.log(`Invoice #: ${bill.invoiceNumber}`);
-  console.log(`Bill date: ${bill.billDate}  Due: ${bill.dueDate}`);
-  console.log(`Line items: ${bill.lineItems.length}`);
-  console.log(`Merchandise: $${bill.totals.merchandise.toFixed(2)}`);
-  console.log(`Shipping: $${bill.totals.shipping.toFixed(2)}`);
-  console.log(`Total: $${bill.totals.total.toFixed(2)}`);
+  const verifiedLabel =
+    bill._meta.totalVerified === true  ? "✓ verified against invoice total" :
+    bill._meta.totalVerified === false ? "✗ MISMATCH — review before approving" :
+                                         "(invoice total not found for cross-check)";
+
+  console.log(`Invoice #:        ${bill.invoiceNumber}`);
+  console.log(`Bill date:        ${bill.billDate}  Due: ${bill.dueDate}`);
+  console.log(`Terms:            ${bill.terms}`);
+  console.log(`Line items:       ${bill.lineItems.length}`);
+  console.log(`Merchandise:      $${bill.totals.merchandise.toFixed(2)}`);
+  console.log(`Shipping:         $${bill.totals.shipping.toFixed(2)}`);
+  console.log(`Total:            $${bill.totals.total.toFixed(2)}  ${verifiedLabel}`);
+
+  if (bill._meta.totalVerified === false) {
+    console.log(`Invoice stated:   $${bill._meta.invoiceStatedTotal?.toFixed(2)}`);
+    console.log(`Gap:              $${Math.abs(bill.totals.total - bill._meta.invoiceStatedTotal).toFixed(2)}`);
+  }
 
   if (dryRun) {
     console.log("\n[Dry run — bill not saved]");
@@ -242,19 +282,17 @@ async function main() {
     return;
   }
 
-  // Save to bills/pending/
   const outDir = path.join(__dirname, "../bills/pending");
   fs.mkdirSync(outDir, { recursive: true });
   const outFile = path.join(outDir, `${bill.invoiceNumber}.json`);
   fs.writeFileSync(outFile, JSON.stringify(bill, null, 2));
-  console.log(`\nBill saved to: bills/pending/${bill.invoiceNumber}.json`);
-  console.log("Review and run: node src/approval.js bills/pending/" + bill.invoiceNumber + ".json");
+  console.log(`\nBill saved to:    bills/pending/${bill.invoiceNumber}.json`);
+  console.log(`Next step:        node src/approval.js bills/pending/${bill.invoiceNumber}.json`);
 
-  // Move PDF to processed
   const processedDir = path.join(__dirname, "../invoices/processed");
   fs.mkdirSync(processedDir, { recursive: true });
   fs.renameSync(pdfPath, path.join(processedDir, path.basename(pdfPath)));
-  console.log(`PDF moved to: invoices/processed/`);
+  console.log(`PDF archived to:  invoices/processed/`);
 }
 
 main().catch(console.error);
