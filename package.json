@@ -1,0 +1,22 @@
+{
+  "name": "invoice-ingest",
+  "version": "1.0.0",
+  "description": "Vendor invoice parser and QuickBooks bill builder for Andersen Lifestyle Brands",
+  "main": "src/parser.js",
+  "scripts": {
+    "parse": "node src/parser.js",
+    "approve": "node src/approval.js",
+    "build": "node src/bill-builder.js",
+    "submit": "node src/quickbooks.js"
+  },
+  "dependencies": {
+    "pdf-parse": "^1.1.1"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "Andersen Lifestyle Brands",
+  "license": "UNLICENSED",
+  "private": true
+}

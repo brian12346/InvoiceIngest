@@ -1,0 +1,7 @@
+node_modules/
+.env
+bills/approved/*.json
+invoices/raw/*.pdf
+invoices/processed/*.pdf
+*.qbo.json
+.DS_Store

@@ -1,0 +1,65 @@
+{
+  "vendorId": "wilson-sporting-goods",
+  "vendorName": "Wilson Sporting Goods",
+  "parentCompany": "Amer Sports",
+  "quickbooksVendorName": "Wilson Sporting Goods",
+  "defaultAccount": "Inventory",
+  "shippingAccount": "Shipping & Freight",
+  "discountAccount": "Purchase Discounts",
+
+  "detection": {
+    "keywords": ["WILSON SPORTING GOODS", "AMER SPORTS", "itcwilson@amersports.com"],
+    "skuPrefix": ["WRS"]
+  },
+
+  "headerFields": {
+    "invoiceNumber": { "label": "INVOICE #", "type": "string" },
+    "date": { "label": "DATE:", "type": "date", "format": "MM/DD/YYYY" },
+    "purchaseOrder": { "label": "PURCHASE ORDER", "type": "string" },
+    "terms": { "label": "TERMS OF PAYMENT", "type": "string" },
+    "accountNumber": { "label": "ACCOUNT / STORE", "type": "string" },
+    "orderNumber": { "label": "Order Number", "type": "string" },
+    "deliveryNumber": { "label": "Delivery Number", "type": "string" },
+    "salesRep": { "label": "Sales Rep.", "type": "string" },
+    "shipVia": { "label": "Shipped Via", "type": "string" },
+    "billOfLading": { "label": "B/L", "type": "string" }
+  },
+
+  "termsMapping": {
+    "Net 60": { "daysUntilDue": 60, "prepayDiscount": null },
+    "Net 30": { "daysUntilDue": 30, "prepayDiscount": null },
+    "2/10 Net 30": { "daysUntilDue": 30, "prepayDiscount": { "pct": 2, "withinDays": 10 } }
+  },
+
+  "shipping": {
+    "detectionKeywords": ["FREE FREIGHT", "FREIGHT"],
+    "freeFreightKeywords": ["FREE FREIGHT"],
+    "defaultCost": 0
+  },
+
+  "lineItems": {
+    "columns": {
+      "qtyShipped": "Qty Shipped",
+      "qtyBackordered": "Qty Backordered",
+      "uom": "UOM",
+      "stockNumber": "Stock Number",
+      "unitPrice": "Unit Price",
+      "extendedPrice": "Extended Price"
+    },
+    "descriptionLine": {
+      "pattern": "^(RUSH (?:LITE|PRO|TOUR) \\d) (.+?) (\\d+(?:\\.\\d)?)$",
+      "groups": ["model", "colorway", "size"]
+    },
+    "quickbooksDescription": "{model} {colorway} sz {size}"
+  },
+
+  "totals": {
+    "merchandise": "MDSE",
+    "freight": "FREIGHT",
+    "other": "OTHER",
+    "tax": "TAX",
+    "total": "TOTAL"
+  },
+
+  "notes": "Multi-page invoice (8 pages). Tracking numbers appear on final page. Credit card surcharge of 2% applies to Visa/MC/Amex — use ACH to avoid."
+}
