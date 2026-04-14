@@ -1,0 +1,2572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InvoiceIngest — Andersen Lifestyle Brands</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;1,9..144,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F7F5F0;
+    --surface: #FFFFFF;
+    --surface-2: #F0EDE6;
+    --border: rgba(0,0,0,0.08);
+    --border-strong: rgba(0,0,0,0.14);
+    --text: #1A1916;
+    --text-2: #6B6760;
+    --text-3: #9E9B96;
+    --accent: #1A1916;
+    --green: #1C5C3A;
+    --green-bg: #EBF5EF;
+    --amber: #7A4A00;
+    --amber-bg: #FEF3DC;
+    --red: #7A1F1F;
+    --red-bg: #FDEAEA;
+    --blue: #1A3F6F;
+    --blue-bg: #E8F0FA;
+    --purple: #3D2B7A;
+    --purple-bg: #EFEBFB;
+    --gray: #4A4845;
+    --gray-bg: #EFEFED;
+    --radius: 6px;
+    --radius-lg: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; min-height: 100vh; }
+
+  /* Layout */
+  .shell { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+  
+  /* Sidebar */
+  .sidebar { background: var(--surface); border-right: 0.5px solid var(--border-strong); padding: 0; display: flex; flex-direction: column; }
+  .sidebar-logo { padding: 24px 20px 20px; border-bottom: 0.5px solid var(--border); }
+  .logo-mark { font-family: 'Fraunces', serif; font-size: 18px; font-weight: 300; letter-spacing: -0.3px; color: var(--text); }
+  .logo-sub { font-size: 10px; color: var(--text-3); margin-top: 2px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .sidebar-nav { padding: 12px 10px; flex: 1; }
+  .nav-section { font-size: 10px; font-weight: 500; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; padding: 8px 10px 4px; }
+  .nav-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: var(--radius); font-size: 13px; color: var(--text-2); cursor: pointer; transition: background 0.12s; margin-bottom: 1px; }
+  .nav-item:hover { background: var(--surface-2); color: var(--text); }
+  .nav-item.active { background: var(--text); color: #fff; }
+  .nav-item svg { width: 14px; height: 14px; opacity: 0.7; flex-shrink: 0; }
+  .nav-item.active svg { opacity: 1; }
+  .nav-badge { margin-left: auto; font-size: 10px; font-weight: 500; background: rgba(255,255,255,0.2); padding: 1px 6px; border-radius: 10px; }
+  .nav-item:not(.active) .nav-badge { background: var(--surface-2); color: var(--text-2); }
+  .sidebar-footer { padding: 16px 20px; border-top: 0.5px solid var(--border); }
+  .vendor-pill { font-size: 11px; color: var(--text-3); }
+
+  /* Main */
+  .main { display: flex; flex-direction: column; overflow: hidden; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; border-bottom: 0.5px solid var(--border); background: var(--surface); }
+  .topbar-title { font-family: 'Fraunces', serif; font-size: 20px; font-weight: 300; letter-spacing: -0.3px; }
+  .topbar-actions { display: flex; gap: 8px; align-items: center; }
+  .content { padding: 24px 28px; overflow-y: auto; flex: 1; }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: var(--radius); font-size: 13px; font-family: inherit; cursor: pointer; border: 0.5px solid var(--border-strong); background: var(--surface); color: var(--text); transition: background 0.12s; }
+  .btn:hover { background: var(--surface-2); }
+  .btn-dark { background: var(--text); color: #fff; border-color: var(--text); }
+  .btn-dark:hover { opacity: 0.88; background: var(--text); }
+  .btn svg { width: 13px; height: 13px; }
+
+  /* Metrics row */
+  .metrics { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 10px; margin-bottom: 20px; }
+  .metric { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 14px; cursor: pointer; transition: border-color 0.12s; }
+  .metric:hover { border-color: var(--border-strong); }
+  .metric.selected { border-color: var(--text); box-shadow: inset 0 0 0 1px var(--text); }
+  .metric-label { font-size: 11px; color: var(--text-3); margin-bottom: 6px; display: flex; align-items: center; gap: 5px; }
+  .metric-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .metric-val { font-size: 22px; font-weight: 500; font-family: 'DM Mono', monospace; letter-spacing: -1px; }
+  .metric-sub { font-size: 11px; color: var(--text-3); margin-top: 3px; }
+
+  /* Status dots */
+  .dot-invoiced { background: var(--blue); }
+  .dot-blocked  { background: var(--red); }
+  .dot-received { background: var(--purple); }
+  .dot-outstanding { background: var(--amber); }
+  .dot-overdue  { background: #B91C1C; }
+  .dot-paid     { background: var(--green); }
+  .dot-draft    { background: #B4B2A9; }
+  .status-draft { background: #F1EFE8; color: #6B6760; }
+  .dot-ordered  { background: #6B6760; }
+  .status-ordered { background: var(--gray-bg); color: var(--gray); }
+
+  /* Filters bar */
+  .filters { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .filter-group { display: flex; gap: 4px; }
+  .filter-chip { padding: 5px 10px; border-radius: 20px; font-size: 12px; border: 0.5px solid var(--border-strong); background: var(--surface); color: var(--text-2); cursor: pointer; transition: all 0.12s; white-space: nowrap; }
+  .filter-chip:hover { background: var(--surface-2); }
+  .filter-chip.active { background: var(--text); color: #fff; border-color: var(--text); }
+  .filter-sep { width: 0.5px; background: var(--border-strong); align-self: stretch; }
+  select.filter-select { padding: 5px 10px; border-radius: 20px; font-size: 12px; border: 0.5px solid var(--border-strong); background: var(--surface); color: var(--text-2); cursor: pointer; font-family: inherit; appearance: none; padding-right: 22px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239E9B96'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
+  .search-wrap { margin-left: auto; position: relative; }
+  .search-wrap input { padding: 5px 10px 5px 28px; border-radius: 20px; font-size: 12px; border: 0.5px solid var(--border-strong); background: var(--surface); color: var(--text); font-family: inherit; width: 200px; }
+  .search-wrap svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 12px; height: 12px; color: var(--text-3); }
+
+  /* Bills table */
+  .table-wrap { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 500; color: var(--text-3); border-bottom: 0.5px solid var(--border); background: var(--surface-2); white-space: nowrap; cursor: pointer; user-select: none; }
+  thead th:hover { color: var(--text); }
+  thead th.sort-asc::after { content: ' ↑'; }
+  thead th.sort-desc::after { content: ' ↓'; }
+  tbody tr { border-bottom: 0.5px solid var(--border); transition: background 0.08s; cursor: pointer; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface-2); }
+  tbody td { padding: 11px 14px; font-size: 13px; }
+  .td-mono { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text-2); }
+  .td-amt { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; text-align: right; }
+  .td-right { text-align: right; }
+
+  /* Status badges */
+  .status { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+  .status-invoiced    { background: var(--blue-bg);   color: var(--blue);   }
+  .status-blocked     { background: var(--red-bg);    color: var(--red);    }
+  .status-received    { background: var(--purple-bg); color: var(--purple); }
+  .status-outstanding { background: var(--amber-bg);  color: var(--amber);  }
+  .status-overdue     { background: #FDEAEA; color: #7A1F1F; }
+  .status-paid        { background: var(--green-bg);  color: var(--green);  }
+  .status::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+  /* Category tag */
+  .cat { font-size: 11px; padding: 2px 7px; border-radius: 4px; background: var(--gray-bg); color: var(--gray); font-weight: 500; }
+
+  /* Bill detail panel */
+  .detail-panel { display: none; background: var(--surface); border-left: 0.5px solid var(--border-strong); width: 480px; flex-shrink: 0; overflow-y: auto; }
+  .detail-panel.open { display: block; }
+  .shell.panel-open { grid-template-columns: 220px 1fr 480px; }
+  .detail-header { padding: 20px 24px 16px; border-bottom: 0.5px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; }
+  .detail-invoice { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text-3); }
+  .detail-vendor { font-family: 'Fraunces', serif; font-size: 18px; font-weight: 300; margin-top: 2px; }
+  .detail-body { padding: 20px 24px; }
+  .detail-section { margin-bottom: 20px; }
+  .detail-section-label { font-size: 10px; font-weight: 500; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+  .detail-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; font-size: 13px; }
+  .detail-row-label { color: var(--text-2); }
+  .detail-row-val { font-weight: 500; }
+  .detail-divider { border: none; border-top: 0.5px solid var(--border); margin: 16px 0; }
+  .detail-lines { font-size: 12px; }
+  .detail-line { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; padding: 6px 0; border-bottom: 0.5px solid var(--border); align-items: baseline; }
+  .detail-line:last-child { border-bottom: none; }
+  .detail-line-desc { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .detail-line-qty { color: var(--text-3); font-family: 'DM Mono', monospace; }
+  .detail-line-amt { font-family: 'DM Mono', monospace; font-weight: 500; }
+  .detail-total { display: flex; justify-content: space-between; padding: 10px 0; font-weight: 500; font-size: 14px; border-top: 0.5px solid var(--border-strong); margin-top: 4px; }
+  .detail-actions { padding: 16px 24px; border-top: 0.5px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+  .detail-actions .btn { justify-content: center; width: 100%; }
+  .close-btn { width: 28px; height: 28px; border-radius: var(--radius); border: 0.5px solid var(--border); background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-2); font-size: 16px; }
+  .close-btn:hover { background: var(--surface-2); }
+
+  /* Empty state */
+  .empty { padding: 60px 20px; text-align: center; color: var(--text-3); }
+  .empty-title { font-size: 15px; color: var(--text-2); margin-bottom: 6px; }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--text); color: #fff; padding: 10px 16px; border-radius: var(--radius); font-size: 13px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 999; }
+  .toast.show { opacity: 1; }
+
+  .wstep { font-size: 12px; color: var(--text-3); padding: 4px 8px; border-radius: 20px; }
+  .wstep.active { background: var(--text); color: #fff; font-weight: 500; }
+  .wstep.done { color: var(--green); }
+  .config-field { display: grid; grid-template-columns: 160px 1fr; gap: 8px; align-items: center; margin-bottom: 10px; font-size: 13px; }
+  .config-key { color: var(--text-2); }
+  .config-input { padding: 6px 8px; border: 0.5px solid var(--border-strong); border-radius: var(--radius); font-size: 12px; font-family: 'DM Mono', monospace; background: var(--surface-2); color: var(--text); width: 100%; }
+  .vendor-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 20px; cursor: pointer; transition: border-color .12s; }
+  .vendor-card:hover { border-color: var(--border-strong); }
+  .vendor-card-name { font-family: 'Fraunces', serif; font-size: 16px; font-weight: 300; margin-bottom: 4px; }
+  .vendor-card-meta { font-size: 12px; color: var(--text-3); margin-bottom: 14px; }
+  .vendor-card-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .vendor-stat { background: var(--surface-2); border-radius: var(--radius); padding: 8px 10px; }
+  .vendor-stat-label { font-size: 10px; color: var(--text-3); margin-bottom: 2px; }
+  .vendor-stat-val { font-size: 14px; font-weight: 500; font-family: 'DM Mono', monospace; }
+  .add-vendor-card { background: var(--surface); border: 1.5px dashed var(--border-strong); border-radius: var(--radius-lg); padding: 20px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 140px; transition: background .12s; color: var(--text-3); gap: 8px; }
+  .add-vendor-card:hover { background: var(--surface-2); color: var(--text-2); }
+  .order-row { background: var(--surface); }
+  .order-row td { font-weight: 500; }
+  .order-row .expand-chevron { display:inline-block; transition: transform 0.15s; font-style:normal; }
+  .order-row.expanded .expand-chevron { transform: rotate(90deg); }
+  .child-row td { background: var(--surface-2); padding-top:7px; padding-bottom:7px; }
+  .child-row td:first-child { padding-left: 28px; }
+  .child-row { border-bottom: 0.5px solid var(--border); }
+  .child-row:last-of-type { border-bottom: 1.5px solid var(--border-strong); }
+  .child-invoice-num { font-family:'DM Mono',monospace; font-size:12px; color:var(--text-2); }
+  .order-summary { font-size:11px; color:var(--text-3); margin-top:2px; }
+  .terms-row { display: grid; grid-template-columns: 1fr 80px 80px 120px auto; gap: 8px; align-items: center; font-size: 12px; }
+  .pay-row { display: grid; grid-template-columns: 1fr 1fr 110px 110px 32px; gap: 10px; align-items: end; margin-bottom: 10px; }
+  .pay-row-label { font-size: 11px; color: var(--text-3); margin-bottom: 3px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .cal-wbtn { padding:6px 11px;font-size:12px;font-family:inherit;border:none;border-right:0.5px solid var(--border-strong);background:transparent;color:var(--text-2);cursor:pointer; }
+  .cal-wbtn:last-child { border-right:none; }
+  .active-wbtn { background:var(--text)!important;color:#fff!important; }
+  .cal-vendor-cell { padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);background:var(--surface-2);border-right:0.5px solid var(--border);border-bottom:0.5px solid var(--border);white-space:nowrap;position:sticky;left:0;z-index:2;min-width:160px;max-width:160px; }
+  .cal-date-header { padding:8px 6px;text-align:center;border-right:0.5px solid var(--border);border-bottom:0.5px solid var(--border-strong);min-width:90px;background:var(--surface-2);position:sticky;top:0; }
+  .cal-date-label { font-size:11px;font-weight:500;color:var(--text-2); }
+  .cal-date-day { font-size:16px;font-weight:500;line-height:1; }
+  .cal-date-today { background:var(--text)!important;border-radius:var(--radius); }
+  .cal-date-today .cal-date-label, .cal-date-today .cal-date-day { color:#fff!important; }
+  .cal-date-weekend { background:var(--surface-2); }
+  .cal-cell { padding:4px 5px;vertical-align:top;border-right:0.5px solid var(--border);border-bottom:0.5px solid var(--border);min-width:90px;height:64px; }
+  .cal-cell-weekend { background:rgba(0,0,0,0.015); }
+  .cal-cell-today { background:rgba(0,0,0,0.02); }
+  .cal-bill-chip { padding:2px 5px;border-radius:3px;font-size:10px;line-height:1.4;cursor:pointer;margin-bottom:2px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-left:2px solid transparent; }
+  .cal-bill-chip:hover { opacity:.8; }
+  .chip-overdue     { background:var(--red-bg);   color:var(--red);   border-color:var(--red); }
+  .chip-outstanding { background:var(--amber-bg); color:var(--amber); border-color:#e6a817; }
+  .chip-invoiced    { background:var(--blue-bg);  color:var(--blue);  border-color:#4a90d9; }
+  .chip-received    { background:var(--purple-bg);color:var(--purple);border-color:var(--purple); }
+  .chip-paid        { background:var(--green-bg); color:var(--green); border-color:var(--green); }
+  .chip-draft       { background:var(--gray-bg);  color:var(--gray);  border-color:#aaa; }
+  .chip-ordered     { background:var(--gray-bg);  color:var(--gray);  border-color:#888; }
+  .chip-blocked     { background:var(--red-bg);   color:var(--red);   border-color:var(--red); }
+  .cal-total-cell { padding:6px 8px;text-align:right;border-right:0.5px solid var(--border);border-top:1px solid var(--border-strong);background:var(--surface-2);font-family:'DM Mono',monospace;font-size:11px;font-weight:500; }
+  .cal-vendor-total { padding:6px 12px;text-align:right;border-right:0.5px solid var(--border);border-top:1px solid var(--border-strong);background:var(--surface-2);font-family:'DM Mono',monospace;font-size:11px;color:var(--text-3);position:sticky;left:0; }
+  .cal-overflow-chip { font-size:10px;color:var(--text-3);padding:1px 4px;cursor:pointer; }
+</style>
+</head>
+<body>
+
+<div class="shell" id="shell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">InvoiceIngest</div>
+      <div class="logo-sub">Andersen Lifestyle Brands</div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">Finance</div>
+      <div class="nav-item active" onclick="showView('bills')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="1.5"/><line x1="5" y1="5.5" x2="11" y2="5.5"/><line x1="5" y1="8" x2="11" y2="8"/><line x1="5" y1="10.5" x2="8" y2="10.5"/></svg>
+        Bills
+        <span class="nav-badge" id="pending-badge">3</span>
+      </div>
+      <div class="nav-item" onclick="showView('enter')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><line x1="8" y1="5" x2="8" y2="11"/><line x1="5" y1="8" x2="11" y2="8"/></svg>
+        Enter bill
+      </div>
+      <div class="nav-item" onclick="showView('orders')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="1.5"/><polyline points="5,8 7,10 11,6"/></svg>
+        Orders
+        <span class="nav-badge" id="orders-badge">0</span>
+      </div>
+      <div class="nav-section" style="margin-top:8px">Config</div>
+      <div class="nav-item" onclick="showView('vendors')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="12" height="8" rx="1"/><path d="M5 6V4a3 3 0 016 0v2"/></svg>
+        Vendors
+      </div>
+      <div class="nav-item" onclick="showView('qbo')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2C4.7 2 2 4.7 2 8s2.7 6 6 6 6-2.7 6-6-2.7-6-6-6z"/><path d="M8 5v3l2 2"/></svg>
+        QuickBooks
+      </div>
+      <div class="nav-item" onclick="showView('categories')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+        Categories
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="vendor-pill">Connected: Wilson · Head · Penn</div>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main" id="main-content">
+
+    <!-- BILLS VIEW -->
+    <div id="view-bills" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+      <div class="topbar">
+        <div class="topbar-title">Bills</div>
+        <div class="topbar-actions">
+          <div style="display:flex;border:0.5px solid var(--border-strong);border-radius:var(--radius);overflow:hidden">
+            <button id="view-toggle-list" onclick="setBillsView('list')" style="padding:7px 12px;font-size:12px;font-family:inherit;border:none;background:var(--text);color:#fff;cursor:pointer;display:flex;align-items:center;gap:5px">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg>
+              List
+            </button>
+            <button id="view-toggle-cal" onclick="setBillsView('calendar')" style="padding:7px 12px;font-size:12px;font-family:inherit;border:none;border-left:0.5px solid var(--border-strong);background:transparent;color:var(--text-2);cursor:pointer;display:flex;align-items:center;gap:5px">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="11" rx="1.5"/><line x1="5" y1="1" x2="5" y2="5"/><line x1="11" y1="1" x2="11" y2="5"/><line x1="2" y1="7" x2="14" y2="7"/></svg>
+              Calendar
+            </button>
+          </div>
+          <button class="btn" onclick="showView('enter')">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
+            Enter bill
+          </button>
+          <button class="btn btn-dark" onclick="toast('Syncing with QuickBooks...')">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8a6 6 0 0110.7-3.7M14 8a6 6 0 01-10.7 3.7"/><polyline points="12,2 14,4.3 11.5,5"/><polyline points="4,14 2,11.7 4.5,11"/></svg>
+            Sync QBO
+          </button>
+        </div>
+      </div>
+      <div class="content">
+
+        <!-- Metrics -->
+        <div class="metrics" id="metrics-row"></div>
+
+        <!-- Filters -->
+        <div class="filters">
+          <div class="filter-group" id="status-filters"></div>
+          <div class="filter-sep"></div>
+          <select class="filter-select" id="vendor-filter" onchange="applyFilters()">
+            <option value="">All vendors</option>
+            <option>Wilson Sporting Goods</option>
+            <option>Head</option>
+            <option>Penn</option>
+            <option>Babolat</option>
+          </select>
+          <select class="filter-select" id="cat-filter" onchange="applyFilters()">
+            <option value="">All categories</option>
+            <option>Shoes</option>
+            <option>Rackets</option>
+            <option>Strings</option>
+            <option>Grips</option>
+            <option>Balls</option>
+            <option>Bags</option>
+          </select>
+          <div class="search-wrap">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>
+            <input type="text" placeholder="Search invoice, vendor..." id="search-input" oninput="applyFilters()">
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div class="table-wrap">
+          <table id="bills-table">
+            <thead>
+              <tr>
+                <th onclick="sortBy('invoice')">Purchase order</th>
+                <th onclick="sortBy('vendor')">Vendor</th>
+                <th onclick="sortBy('category')">Category</th>
+                <th onclick="sortBy('date')">Bill date</th>
+                <th onclick="sortBy('due')">Due date</th>
+                <th onclick="sortBy('status')">Status</th>
+                <th onclick="sortBy('amount')" style="text-align:right">Amount</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="bills-tbody"></tbody>
+          </table>
+        </div>
+
+        <!-- CALENDAR VIEW (hidden by default) -->
+        <div id="cal-container" style="display:none">
+
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+            <div style="display:flex;border:0.5px solid var(--border-strong);border-radius:var(--radius);overflow:hidden">
+              <button onclick="setCalWindow('week')"   id="cal-w-week"   class="cal-wbtn active-wbtn">Week</button>
+              <button onclick="setCalWindow('2week')"  id="cal-w-2week"  class="cal-wbtn">2 weeks</button>
+              <button onclick="setCalWindow('month')"  id="cal-w-month"  class="cal-wbtn">Month</button>
+              <button onclick="setCalWindow('custom')" id="cal-w-custom" class="cal-wbtn">Custom</button>
+            </div>
+            <button onclick="shiftCal(-1)" style="padding:6px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);background:var(--surface);font-family:inherit;cursor:pointer;font-size:13px">‹</button>
+            <span id="cal-range-label" style="font-size:13px;font-weight:500;min-width:200px;text-align:center"></span>
+            <button onclick="shiftCal(1)"  style="padding:6px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);background:var(--surface);font-family:inherit;cursor:pointer;font-size:13px">›</button>
+            <button onclick="shiftCal(0,'today')" style="padding:6px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);background:var(--surface);font-family:inherit;cursor:pointer;font-size:12px;color:var(--text-2)">Today</button>
+            <div id="cal-custom-wrap" style="display:none;align-items:center;gap:6px;font-size:12px;color:var(--text-2)">
+              <input type="date" id="cal-start" onchange="renderCalendar()" style="padding:5px 8px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:12px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+              <span>to</span>
+              <input type="date" id="cal-end" onchange="renderCalendar()" style="padding:5px 8px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:12px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+            </div>
+            <div style="margin-left:auto;display:flex;gap:12px;align-items:center;font-size:11px">
+              <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--red-bg);border:1px solid var(--red);display:inline-block"></span>Overdue</span>
+              <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--amber-bg);border:1px solid #e6a817;display:inline-block"></span>Outstanding</span>
+              <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--blue-bg);border:1px solid #4a90d9;display:inline-block"></span>Invoiced</span>
+              <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--green-bg);border:1px solid #2ca01c;display:inline-block"></span>Paid</span>
+              <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--gray-bg);border:1px solid #888;display:inline-block"></span>Other</span>
+            </div>
+          </div>
+
+          <div style="overflow-x:auto;border:0.5px solid var(--border);border-radius:var(--radius-lg);background:var(--surface)">
+            <table id="cal-table" style="border-collapse:collapse;min-width:100%;font-size:12px">
+              <thead id="cal-head"></thead>
+              <tbody id="cal-body"></tbody>
+              <tfoot id="cal-foot"></tfoot>
+            </table>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ENTER BILL VIEW -->
+    <div id="view-enter" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+      <div class="topbar">
+        <div class="topbar-title">Enter bill</div>
+        <div class="topbar-actions">
+          <button class="btn" onclick="showView('bills')">← Back to bills</button>
+        </div>
+      </div>
+      <div class="content">
+        <div style="max-width:760px">
+
+          <div style="background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:14px">
+            <div style="font-size:10px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px">Bill header</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div><div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Vendor</div><input type="text" value="Wilson Sporting Goods" style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)"></div>
+              <div><div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Invoice #</div><input type="text" value="4554852904" style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)"></div>
+              <div><div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Bill date</div><input type="date" value="2026-02-05" style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)"></div>
+              <div><div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Due date</div><input type="date" value="2026-04-06" style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)"></div>
+              <div><div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Terms</div><select style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)"><option>Net 60</option><option>Net 30</option><option>4%90 net 120</option><option>Due on receipt</option></select></div>
+              <div><div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Category</div><select style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)"><option>Shoes</option><option>Rackets</option><option>Strings</option><option>Grips</option><option>Balls</option><option>Bags</option></select></div>
+              <div><div style="font-size:12px;color:var(--text-2);margin-bottom:4px">P.O. / Reference</div><input type="text" value="Rush 5 Men" style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)"></div>
+              <div><div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Account</div><select style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)"><option>Inventory</option><option>Cost of Goods Sold</option><option>Purchases</option></select></div>
+            </div>
+
+            <div style="margin-top:14px;padding-top:14px;border-top:0.5px solid var(--border)">
+              <div style="font-size:12px;color:var(--text-2);margin-bottom:6px">Invoice PDF</div>
+              <div id="attach-zone" onclick="document.getElementById('pdf-input').click()"
+                style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px dashed var(--border-strong);border-radius:var(--radius);cursor:pointer;background:var(--surface-2);transition:background .12s"
+                onmouseenter="this.style.background='var(--bg)'" onmouseleave="this.style.background='var(--surface-2)'"
+                ondragover="event.preventDefault();this.style.background='var(--bg)'"
+                ondragleave="this.style.background='var(--surface-2)'"
+                ondrop="handlePDFDrop(event)">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="flex-shrink:0;color:var(--text-3)"><rect x="2" y="1" width="9" height="12" rx="1"/><path d="M8 1v4h3"/><line x1="4" y1="7" x2="9" y2="7"/><line x1="4" y1="9.5" x2="9" y2="9.5"/></svg>
+                <span id="attach-label" style="font-size:13px;color:var(--text-3);flex:1">Drop PDF here or click to attach</span>
+                <span id="attach-clear" style="display:none;font-size:11px;padding:2px 8px;border:0.5px solid var(--border-strong);border-radius:var(--radius);background:var(--surface);color:var(--text-2);cursor:pointer" onclick="clearPDF(event)">Remove</span>
+                <input type="file" id="pdf-input" accept=".pdf,.PDF" style="display:none" onchange="handlePDFSelect(this)">
+              </div>
+            </div>
+          </div>
+
+          <div style="background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+              <div style="font-size:10px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em">Line items</div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <button id="reparse-btn" onclick="reparseInvoice()" disabled
+                  style="display:flex;align-items:center;gap:5px;font-size:11px;padding:4px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);background:var(--surface);color:var(--text-3);cursor:not-allowed;font-family:inherit;opacity:.5"
+                  title="Attach an invoice PDF to enable reparsing">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8a6 6 0 0110.7-3.7M14 8a6 6 0 01-10.7 3.7"/><polyline points="12,2 14,4.3 11.5,5"/><polyline points="4,14 2,11.7 4.5,11"/></svg>
+                  Reparse PDF
+                </button>
+                <select id="enter-group" onchange="renderEnterLines()" style="font-size:12px;padding:4px 8px;border:0.5px solid var(--border-strong);border-radius:20px;font-family:inherit;background:var(--surface);color:var(--text-2)">
+                <option value="all">All lines (56)</option>
+                <option value="model">By model (4)</option>
+                <option value="single">Single line</option>
+              </select>
+              </div>
+            </div>
+            <div style="max-height:320px;overflow-y:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed" id="enter-table">
+                <thead><tr style="border-bottom:0.5px solid var(--border)">
+                  <th style="text-align:left;padding:6px 8px;color:var(--text-3);font-weight:500;font-size:11px;width:80px">Account</th>
+                  <th style="text-align:left;padding:6px 8px;color:var(--text-3);font-weight:500;font-size:11px">Description</th>
+                  <th style="text-align:left;padding:6px 8px;color:var(--text-3);font-weight:500;font-size:11px;width:105px">SKU</th>
+                  <th style="text-align:right;padding:6px 8px;color:var(--text-3);font-weight:500;font-size:11px;width:36px">Qty</th>
+                  <th style="text-align:right;padding:6px 8px;color:var(--text-3);font-weight:500;font-size:11px;width:64px">Unit</th>
+                  <th style="text-align:right;padding:6px 8px;color:var(--text-3);font-weight:500;font-size:11px;width:72px">Amount</th>
+                </tr></thead>
+                <tbody id="enter-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style="background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:14px">
+            <div style="font-size:10px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px">Shipping &amp; payment</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+
+              <div>
+                <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Shipping cost</div>
+                <input type="number" value="0" id="ship-amt" oninput="updateEnterTotals()" style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+                <div style="font-size:11px;color:var(--text-3);margin-top:3px">Invoice states free freight</div>
+              </div>
+
+              <div>
+                <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Shipping account</div>
+                <select style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+                  <option>Shipping &amp; Freight</option><option>Cost of Goods Sold</option>
+                </select>
+              </div>
+
+              <div>
+                <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Payment terms</div>
+                <select id="pay-terms" onchange="onTermsChange()" style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+                  <option value="net60|0|0">Net 60 — no discount</option>
+                  <option value="net120|4|90">4%/90, Net 120 — 4% if paid within 90 days</option>
+                  <option value="net30|0|0">Net 30 — no discount</option>
+                  <option value="custom|0|0">Custom…</option>
+                </select>
+              </div>
+
+              <div id="custom-terms-wrap" style="display:none;grid-column:1/-1">
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:12px;background:var(--surface-2);border:0.5px solid var(--border-strong);border-radius:var(--radius);margin-top:2px">
+                  <div>
+                    <div style="font-size:11px;color:var(--text-3);margin-bottom:4px">Net days (due date)</div>
+                    <input type="number" id="custom-net-days" placeholder="e.g. 45" min="1" max="365"
+                      oninput="onTermsChange()"
+                      style="width:100%;padding:6px 8px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface);color:var(--text)">
+                  </div>
+                  <div>
+                    <div style="font-size:11px;color:var(--text-3);margin-bottom:4px">Discount %</div>
+                    <input type="number" id="custom-disc-pct" placeholder="e.g. 2" min="0" max="100" step="0.1"
+                      oninput="onTermsChange()"
+                      style="width:100%;padding:6px 8px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface);color:var(--text)">
+                  </div>
+                  <div>
+                    <div style="font-size:11px;color:var(--text-3);margin-bottom:4px">If paid within days</div>
+                    <input type="number" id="custom-disc-days" placeholder="e.g. 10" min="1" max="365"
+                      oninput="onTermsChange()"
+                      style="width:100%;padding:6px 8px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface);color:var(--text)">
+                    <div style="font-size:10px;color:var(--text-3);margin-top:3px">Leave blank for no prepay discount</div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="prepay-pay-by-wrap">
+                <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Pay by date <span id="prepay-label" style="color:var(--green);font-size:11px"></span></div>
+                <input type="date" id="prepay-date" oninput="updateEnterTotals()" style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+                <div style="font-size:11px;color:var(--text-3);margin-top:3px" id="prepay-hint">Set a pay-by date to calculate prepay discount</div>
+              </div>
+
+              <div>
+                <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Payment method</div>
+                <select id="pay-method" onchange="updateEnterTotals()" style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+                  <option value="ach">ACH / Check — no fee</option>
+                  <option value="cc">Credit card (Visa/MC/Amex) — 2% surcharge</option>
+                  <option value="cc0">Credit card (Visa/MC/Amex) — no fee</option>
+                  <option value="debit">Debit card — no fee</option>
+                </select>
+              </div>
+
+              <div id="surcharge-account-wrap" style="display:none">
+                <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Surcharge account</div>
+                <select id="surcharge-acct" style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+                  <option>Bank Charges &amp; Fees</option>
+                  <option>Credit Card Processing Fees</option>
+                  <option>Operating Expenses</option>
+                </select>
+              </div>
+
+            </div>
+          </div>
+
+          <div style="background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+              <div style="font-size:10px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em">Additional line items</div>
+              <button class="btn" style="font-size:11px;padding:4px 10px" onclick="addExtraLine()">+ Add line</button>
+            </div>
+            <div id="extra-lines-wrap">
+              <div style="font-size:12px;color:var(--text-3);padding:8px 0">No additional lines. Use this for tariff surcharges, freight, restocking fees, or any other charges that need their own QB account.</div>
+            </div>
+          </div>
+
+          <div style="background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:14px">
+            <div style="font-size:10px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Totals</div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span style="color:var(--text-2)">Merchandise</span><span style="font-family:'DM Mono',monospace">$8,116.56</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span style="color:var(--text-2)">Shipping</span><span style="font-family:'DM Mono',monospace" id="et-ship">$0.00</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px" id="et-disc-row" style="display:none"><span style="color:var(--green)">Prepay discount</span><span style="font-family:'DM Mono',monospace;color:var(--green)" id="et-disc">— $0.00</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px" id="et-surcharge-row" style="display:none"><span style="color:var(--amber)">CC surcharge (2%)</span><span style="font-family:'DM Mono',monospace;color:var(--amber)" id="et-surcharge">+ $0.00</span></div>
+            <div id="et-extra-lines-totals"></div>
+            <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:500;padding-top:10px;border-top:0.5px solid var(--border-strong)"><span>Total due</span><span style="font-family:'DM Mono',monospace" id="et-total">$8,116.56</span></div>
+            <div style="margin-top:8px;font-size:12px;color:var(--green)" id="et-verify">✓ Verified against invoice stated total</div>
+          </div>
+
+          <div style="background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <div style="font-size:10px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em">Payment plan</div>
+              <button class="btn" style="font-size:11px;padding:4px 10px" onclick="addPaymentLine()">+ Add payment</button>
+            </div>
+            <div style="font-size:13px;color:var(--text-2);margin-bottom:16px">Map this bill to one or more payment methods with proposed pay dates. Helps plan cashflow and track which card each bill will be paid from.</div>
+
+            <div id="payment-lines-wrap">
+              <div style="font-size:12px;color:var(--text-3);padding:6px 0" id="payment-empty-hint">No payments scheduled yet.</div>
+            </div>
+
+            <div id="payment-summary-bar" style="display:none;margin-top:14px;padding-top:12px;border-top:0.5px solid var(--border)">
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+                <span style="color:var(--text-2)">Planned</span>
+                <span style="font-family:'DM Mono',monospace" id="pay-planned">$0.00</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:13px">
+                <span style="color:var(--text-2)">Unplanned</span>
+                <span style="font-family:'DM Mono',monospace;font-weight:500" id="pay-unplanned" style="color:var(--amber)">$8,116.56</span>
+              </div>
+              <div id="pay-balance-bar" style="margin-top:10px;height:4px;background:var(--surface-2);border-radius:2px;overflow:hidden">
+                <div id="pay-balance-fill" style="height:100%;background:var(--green);border-radius:2px;width:0%;transition:width .3s"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="qbo-preview-card" style="display:none;background:var(--surface);border:1.5px solid #2ca01c;border-radius:var(--radius-lg);overflow:hidden;margin-bottom:14px">
+
+            <div style="background:#2ca01c;padding:12px 20px;display:flex;align-items:center;justify-content:space-between">
+              <div style="display:flex;align-items:center;gap:10px">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+                <span style="color:white;font-weight:500;font-size:14px">QuickBooks bill preview</span>
+              </div>
+              <button onclick="closeQBOPreview()" style="background:none;border:none;color:rgba(255,255,255,0.8);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">×</button>
+            </div>
+
+            <div style="padding:20px 24px">
+
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid #e0e0e0">
+                <div>
+                  <div style="font-size:11px;color:#666;margin-bottom:3px;font-weight:500">Vendor</div>
+                  <div style="font-size:14px;font-weight:500;color:#1a1a1a" id="qp-vendor">Wilson Sporting Goods</div>
+                </div>
+                <div>
+                  <div style="font-size:11px;color:#666;margin-bottom:3px;font-weight:500">Mailing address</div>
+                  <div style="font-size:12px;color:#444" id="qp-address">PO Box 3135<br>Carol Stream IL 60132</div>
+                </div>
+                <div>
+                  <div style="font-size:11px;color:#666;margin-bottom:3px;font-weight:500">Terms</div>
+                  <div style="font-size:13px;color:#1a1a1a" id="qp-terms">Net 60</div>
+                </div>
+                <div>
+                  <div style="font-size:11px;color:#666;margin-bottom:3px;font-weight:500">Bill no.</div>
+                  <div style="font-size:13px;font-family:monospace;color:#1a1a1a" id="qp-billno">4554852904</div>
+                </div>
+              </div>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid #e0e0e0">
+                <div>
+                  <div style="font-size:11px;color:#666;margin-bottom:3px;font-weight:500">Bill date</div>
+                  <div style="font-size:13px;color:#1a1a1a" id="qp-billdate">02/05/2026</div>
+                </div>
+                <div>
+                  <div style="font-size:11px;color:#666;margin-bottom:3px;font-weight:500">Due date</div>
+                  <div style="font-size:13px;color:#1a1a1a" id="qp-duedate">04/06/2026</div>
+                </div>
+                <div>
+                  <div style="font-size:11px;color:#666;margin-bottom:3px;font-weight:500">AP account</div>
+                  <div style="font-size:13px;color:#1a1a1a">Accounts Payable (A/P)</div>
+                </div>
+                <div>
+                  <div style="font-size:11px;color:#666;margin-bottom:3px;font-weight:500">Memo</div>
+                  <div style="font-size:13px;color:#1a1a1a" id="qp-memo">Rush 5 Men</div>
+                </div>
+              </div>
+
+              <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px">
+                <thead>
+                  <tr style="background:#f5f5f5;border-bottom:1px solid #ddd">
+                    <th style="text-align:left;padding:8px 10px;font-weight:500;color:#555;width:28px">#</th>
+                    <th style="text-align:left;padding:8px 10px;font-weight:500;color:#555">Account</th>
+                    <th style="text-align:left;padding:8px 10px;font-weight:500;color:#555">Description</th>
+                    <th style="text-align:right;padding:8px 10px;font-weight:500;color:#555;width:60px">Qty</th>
+                    <th style="text-align:right;padding:8px 10px;font-weight:500;color:#555;width:80px">Rate</th>
+                    <th style="text-align:right;padding:8px 10px;font-weight:500;color:#555;width:90px">Amount</th>
+                  </tr>
+                </thead>
+                <tbody id="qp-lines"></tbody>
+              </table>
+
+              <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+                <div style="width:260px">
+                  <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-top:1px solid #ddd" id="qp-subtotal-row">
+                    <span style="color:#555">Subtotal</span>
+                    <span id="qp-subtotal" style="font-family:monospace">$8,116.56</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#2ca01c;display:none" id="qp-discount-row">
+                    <span>Prepay discount</span>
+                    <span id="qp-discount" style="font-family:monospace"></span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#b45309;display:none" id="qp-surcharge-row">
+                    <span>CC surcharge</span>
+                    <span id="qp-surcharge" style="font-family:monospace"></span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;padding:8px 0 4px;font-size:15px;font-weight:600;border-top:2px solid #1a1a1a;margin-top:4px">
+                    <span>Total</span>
+                    <span id="qp-total" style="font-family:monospace;color:#1a1a1a">$8,116.56</span>
+                  </div>
+                </div>
+              </div>
+
+              <div id="qp-payment-section" style="display:none;background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px;padding:14px;margin-bottom:16px">
+                <div style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Payment schedule</div>
+                <div id="qp-payments"></div>
+              </div>
+
+              <div id="qp-warnings" style="margin-bottom:12px"></div>
+
+              <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:12px;border-top:1px solid #e0e0e0">
+                <button class="btn" onclick="closeQBOPreview()">Edit bill</button>
+                <button onclick="approveBillEnter()" style="display:flex;align-items:center;gap:6px;padding:9px 18px;background:#2ca01c;color:white;border:none;border-radius:var(--radius);font-size:13px;font-family:inherit;cursor:pointer;font-weight:500">
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="white" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg>
+                  Confirm &amp; submit to QuickBooks
+                </button>
+              </div>
+
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;justify-content:flex-end" id="bill-action-btns">
+            <button class="btn" onclick="showView('bills')">Cancel</button>
+            <button class="btn" onclick="toast('Bill saved to pending')">Save draft</button>
+            <button class="btn btn-dark" onclick="showQBOPreview()">Preview in QuickBooks →</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ORDERS VIEW -->
+    <div id="view-orders" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+      <div class="topbar">
+        <div class="topbar-title">Orders</div>
+        <div class="topbar-actions">
+          <button class="btn btn-dark" onclick="openNewOrder()">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
+            New order
+          </button>
+        </div>
+      </div>
+      <div class="content">
+
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:20px" id="orders-metrics"></div>
+
+        <div id="new-order-form" style="display:none;background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:16px">
+          <div style="font-size:10px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px">New order</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:4px">
+
+            <div>
+              <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Vendor <span style="color:var(--red)">*</span></div>
+              <select id="no-vendor" style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+                <option value="">— select vendor —</option>
+                <option>Wilson Sporting Goods</option>
+                <option>Head</option>
+                <option>Penn</option>
+                <option>Babolat</option>
+              </select>
+            </div>
+
+            <div>
+              <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">PO name / reference</div>
+              <input type="text" id="no-poname" placeholder="e.g. Rush 5 Fall 2026" style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+            </div>
+
+            <div>
+              <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Category <span style="color:var(--red)">*</span></div>
+              <select id="no-category" style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+                <option value="">— select —</option>
+                <option>Shoes</option><option>Rackets</option><option>Strings</option>
+                <option>Grips</option><option>Balls</option><option>Bags</option>
+              </select>
+            </div>
+
+            <div>
+              <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Order amount</div>
+              <div style="position:relative">
+                <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--text-3)">$</span>
+                <input type="number" id="no-amount" placeholder="0.00" step="0.01" style="width:100%;padding:7px 10px 7px 20px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+              </div>
+            </div>
+
+            <div>
+              <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Budget</div>
+              <div style="position:relative">
+                <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--text-3)">$</span>
+                <input type="number" id="no-budget" placeholder="0.00" step="0.01" oninput="updateOrderBudgetHint()" style="width:100%;padding:7px 10px 7px 20px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+              </div>
+              <div id="no-budget-hint" style="font-size:11px;color:var(--text-3);margin-top:3px"></div>
+            </div>
+
+            <div>
+              <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Account</div>
+              <select id="no-account" style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+                <option>Inventory</option>
+                <option>Cost of Goods Sold</option>
+                <option>Purchases</option>
+              </select>
+            </div>
+
+            <div>
+              <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Order date</div>
+              <input type="date" id="no-date" style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+            </div>
+
+            <div>
+              <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Target delivery</div>
+              <input type="date" id="no-delivery" style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+              <div style="font-size:11px;color:var(--text-3);margin-top:3px">When goods are expected</div>
+            </div>
+
+            <div>
+              <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Must order by</div>
+              <input type="date" id="no-toorder" style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+              <div style="font-size:11px;color:var(--text-3);margin-top:3px">Shows alert if this date passes</div>
+            </div>
+
+            <div>
+              <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Terms</div>
+              <select id="no-terms" style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+                <option>Net 60</option><option>Net 30</option><option>4%/90, Net 120</option>
+              </select>
+            </div>
+
+            <div>
+              <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Payment method</div>
+              <select id="no-paymethod" style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+                <option value="">— not set —</option>
+                <option>ACH / Check</option>
+                <option>Amex Corporate ···4521</option>
+                <option>Visa Operating ···8834</option>
+                <option>MC Travel ···1102</option>
+              </select>
+            </div>
+
+            <div>
+              <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Season / period</div>
+              <input type="text" id="no-season" placeholder="e.g. Spring 2026, Q3" style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+            </div>
+
+          </div>
+
+          <div style="margin-bottom:12px;margin-top:4px">
+            <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Notes</div>
+            <textarea id="no-notes" placeholder="Product details, size run, colorways, special instructions..." rows="2" style="width:100%;padding:7px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text);resize:vertical"></textarea>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn" onclick="closeNewOrder()">Cancel</button>
+            <button class="btn btn-dark" onclick="saveNewOrder()">Create order →</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr>
+                <th onclick="sortOrders('poName')" style="text-align:left;padding:10px 14px;font-size:11px;font-weight:500;color:var(--text-3);border-bottom:0.5px solid var(--border);background:var(--surface-2);cursor:pointer">PO / Reference</th>
+                <th onclick="sortOrders('vendor')" style="text-align:left;padding:10px 14px;font-size:11px;font-weight:500;color:var(--text-3);border-bottom:0.5px solid var(--border);background:var(--surface-2);cursor:pointer">Vendor</th>
+                <th onclick="sortOrders('category')" style="text-align:left;padding:10px 14px;font-size:11px;font-weight:500;color:var(--text-3);border-bottom:0.5px solid var(--border);background:var(--surface-2);cursor:pointer">Category</th>
+                <th onclick="sortOrders('date')" style="text-align:left;padding:10px 14px;font-size:11px;font-weight:500;color:var(--text-3);border-bottom:0.5px solid var(--border);background:var(--surface-2);cursor:pointer">Order date</th>
+                <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:500;color:var(--text-3);border-bottom:0.5px solid var(--border);background:var(--surface-2)">Status</th>
+                <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:500;color:var(--text-3);border-bottom:0.5px solid var(--border);background:var(--surface-2)">Invoiced</th>
+                <th onclick="sortOrders('amount')" style="text-align:right;padding:10px 14px;font-size:11px;font-weight:500;color:var(--text-3);border-bottom:0.5px solid var(--border);background:var(--surface-2);cursor:pointer">Est. amount</th>
+              </tr>
+            </thead>
+            <tbody id="orders-tbody"></tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- VENDORS VIEW -->
+    <div id="view-vendors" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+      <div class="topbar">
+        <div class="topbar-title">Vendors</div>
+        <div class="topbar-actions">
+          <button class="btn btn-dark" onclick="openAddVendor()">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
+            Add vendor
+          </button>
+        </div>
+      </div>
+      <div class="content">
+        <div id="vendor-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px"></div>
+      </div>
+    </div>
+
+    <!-- ADD VENDOR WIZARD -->
+    <div id="view-add-vendor" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+      <div class="topbar">
+        <div style="display:flex;align-items:center;gap:12px">
+          <button class="btn" onclick="closeAddVendor()" style="padding:6px 10px">←</button>
+          <div class="topbar-title">Add vendor</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px">
+          <div style="display:flex;gap:6px;align-items:center" id="wizard-steps">
+            <span class="wstep active" data-step="1">1 · Details</span>
+            <span style="color:var(--text-3)">›</span>
+            <span class="wstep" data-step="2">2 · Training invoices</span>
+            <span style="color:var(--text-3)">›</span>
+            <span class="wstep" data-step="3">3 · Review &amp; save</span>
+          </div>
+        </div>
+      </div>
+      <div class="content" style="display:flex;justify-content:center">
+        <div style="width:100%;max-width:640px">
+
+          <!-- Step 1 -->
+          <div id="wstep-1">
+            <div style="background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:24px;margin-bottom:14px">
+              <div style="font-size:10px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:18px">Vendor details</div>
+              <div style="margin-bottom:16px">
+                <div style="font-size:12px;color:var(--text-2);margin-bottom:5px">Vendor name <span style="color:var(--red)">*</span></div>
+                <input id="v-name" type="text" placeholder="e.g. Wilson Sporting Goods" style="width:100%;padding:9px 12px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:14px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+                <div style="font-size:11px;color:var(--text-3);margin-top:4px">Must match the vendor name in QuickBooks exactly</div>
+              </div>
+              <div style="margin-bottom:16px">
+                <div style="font-size:12px;color:var(--text-2);margin-bottom:5px">Display name</div>
+                <input id="v-display" type="text" placeholder="Short name shown in the app (optional)" style="width:100%;padding:9px 12px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:14px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+                <div>
+                  <div style="font-size:12px;color:var(--text-2);margin-bottom:5px">Default account</div>
+                  <select id="v-account" style="width:100%;padding:9px 12px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+                    <option>Inventory</option><option>Cost of Goods Sold</option><option>Purchases</option>
+                  </select>
+                </div>
+                <div>
+                  <div style="font-size:12px;color:var(--text-2);margin-bottom:5px">Default category</div>
+                  <select id="v-category" style="width:100%;padding:9px 12px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+                    <option value="">— select —</option><option>Shoes</option><option>Rackets</option><option>Strings</option><option>Grips</option><option>Balls</option><option>Bags</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:12px;color:var(--text-2);margin-bottom:5px">Detection keywords</div>
+                <input id="v-keywords" type="text" placeholder="e.g. WILSON SPORTING GOODS, itcwilson@amersports.com" style="width:100%;padding:9px 12px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+                <div style="font-size:11px;color:var(--text-3);margin-top:4px">Comma-separated strings that uniquely identify this vendor in a PDF</div>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end">
+              <button class="btn btn-dark" onclick="wizardNext(2)">Continue →</button>
+            </div>
+          </div>
+
+          <!-- Step 2 -->
+          <div id="wstep-2" style="display:none">
+            <div style="background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:24px;margin-bottom:14px">
+              <div style="font-size:10px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Training invoices</div>
+              <div style="font-size:13px;color:var(--text-2);margin-bottom:20px">Select a folder of PDF invoices from this vendor. The parser will analyse them to detect field names, column layout, SKU patterns, and payment terms automatically.</div>
+              <div id="drop-zone" onclick="document.getElementById('folder-input').click()" style="border:1.5px dashed var(--border-strong);border-radius:var(--radius-lg);padding:40px 24px;text-align:center;cursor:pointer;transition:background .15s;background:var(--surface-2)" onmouseenter="this.style.background='var(--bg)'" onmouseleave="this.style.background='var(--surface-2)'">
+                <div style="width:40px;height:40px;border-radius:var(--radius-lg);background:var(--surface);border:0.5px solid var(--border-strong);display:flex;align-items:center;justify-content:center;margin:0 auto 14px">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 2v10M5 8l4-4 4 4"/><path d="M2 14h14"/></svg>
+                </div>
+                <div style="font-size:14px;font-weight:500;margin-bottom:4px">Select invoice folder</div>
+                <div style="font-size:12px;color:var(--text-3)">Click to browse, or drag &amp; drop a folder of PDFs</div>
+                <input type="file" id="folder-input" webkitdirectory multiple accept=".pdf,.PDF" style="display:none" onchange="handleFolderSelect(this)">
+              </div>
+              <div id="file-list" style="display:none;margin-top:16px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                  <div style="font-size:12px;font-weight:500;color:var(--text-2)" id="file-count-label"></div>
+                  <button class="btn" style="padding:4px 10px;font-size:11px" onclick="clearFiles()">Clear</button>
+                </div>
+                <div id="file-list-inner" style="max-height:200px;overflow-y:auto;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--surface-2)"></div>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:space-between">
+              <button class="btn" onclick="wizardNext(1)">← Back</button>
+              <div style="display:flex;gap:8px">
+                <button class="btn" onclick="wizardNext(3)">Skip for now</button>
+                <button class="btn btn-dark" id="train-btn" onclick="runTraining()" style="opacity:.5;cursor:not-allowed" disabled>Analyse invoices →</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 3 -->
+          <div id="wstep-3" style="display:none">
+            <div style="background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:24px;margin-bottom:14px">
+              <div style="font-size:10px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Auto-detected config</div>
+              <div style="font-size:13px;color:var(--text-2);margin-bottom:20px">Review what was detected from the training invoices. Edit any field before saving.</div>
+              <div id="detected-config"></div>
+            </div>
+            <div style="background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:24px;margin-bottom:14px">
+              <div style="font-size:10px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px">Payment terms mapping</div>
+              <div id="terms-rows" style="display:flex;flex-direction:column;gap:8px"></div>
+              <button class="btn" style="margin-top:10px;font-size:12px;padding:5px 10px" onclick="addTermsRow()">+ Add term</button>
+            </div>
+            <div style="display:flex;justify-content:space-between">
+              <button class="btn" onclick="wizardNext(2)">← Back</button>
+              <button class="btn btn-dark" onclick="saveVendor()">Save vendor →</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+    <div id="view-qbo" style="display:none;flex-direction:column;flex:1">
+      <div class="topbar"><div class="topbar-title">QuickBooks connection</div></div>
+      <div class="content"><div class="empty"><div class="empty-title">QuickBooks Online</div><p>Configure your QBO OAuth credentials to enable bill submission.</p></div></div>
+    </div>
+    <div id="view-categories" style="display:none;flex-direction:column;flex:1">
+      <div class="topbar"><div class="topbar-title">Categories</div></div>
+      <div class="content"><div class="empty"><div class="empty-title">Product categories</div><p>Manage category → QuickBooks account mappings.</p></div></div>
+    </div>
+
+  </main>
+
+  <!-- Detail panel -->
+  <aside class="detail-panel" id="detail-panel">
+    <div class="detail-header">
+      <div>
+        <div class="detail-invoice" id="dp-invoice"></div>
+        <div class="detail-vendor" id="dp-vendor"></div>
+      </div>
+      <button class="close-btn" onclick="closePanel()">×</button>
+    </div>
+    <div class="detail-body">
+      <div class="detail-section">
+        <div class="detail-section-label">Bill details</div>
+        <div class="detail-row"><span class="detail-row-label">Status</span><span id="dp-status"></span></div>
+        <div class="detail-row"><span class="detail-row-label">Bill date</span><span class="detail-row-val" id="dp-date"></span></div>
+        <div class="detail-row"><span class="detail-row-label">Due date</span><span class="detail-row-val" id="dp-due"></span></div>
+        <div class="detail-row"><span class="detail-row-label">Terms</span><span class="detail-row-val" id="dp-terms"></span></div>
+        <div class="detail-row"><span class="detail-row-label">Category</span><span class="detail-row-val" id="dp-cat"></span></div>
+        <div class="detail-row"><span class="detail-row-label">P.O. / Ref</span><span class="detail-row-val" id="dp-po"></span></div>
+        <div class="detail-row"><span class="detail-row-label">QBO bill ID</span><span class="detail-row-val" id="dp-qbo"></span></div>
+        <div class="detail-row" id="dp-paiddate-row" style="display:none"><span class="detail-row-label">Paid date</span><span class="detail-row-val" id="dp-paiddate"></span></div>
+        <div class="detail-row" id="dp-toorder-row" style="display:none"><span class="detail-row-label">Order by</span><span class="detail-row-val" id="dp-toorder" style="color:var(--amber)"></span></div>
+      </div>
+      <hr class="detail-divider">
+      <div class="detail-section">
+        <div class="detail-section-label">Line items</div>
+        <div class="detail-lines" id="dp-lines"></div>
+        <div class="detail-total"><span>Total</span><span id="dp-total"></span></div>
+      </div>
+
+      <div id="dp-qbo-section" style="display:none;margin:0 -24px;border-top:0.5px solid var(--border)">
+        <div style="background:#2ca01c;padding:10px 20px;display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:8px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+            <span style="color:white;font-weight:500;font-size:12px">QuickBooks entry</span>
+          </div>
+          <span id="dp-qbo-id" style="color:rgba(255,255,255,0.8);font-size:11px;font-family:'DM Mono',monospace"></span>
+        </div>
+        <div style="padding:16px 20px" id="dp-qbo-body">
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #e8e8e8">
+            <div><div style="font-size:10px;color:#888;margin-bottom:2px;font-weight:500">Bill date</div><div style="font-size:12px;color:#222" id="dp-qbo-date"></div></div>
+            <div><div style="font-size:10px;color:#888;margin-bottom:2px;font-weight:500">Due date</div><div style="font-size:12px;color:#222" id="dp-qbo-due"></div></div>
+            <div><div style="font-size:10px;color:#888;margin-bottom:2px;font-weight:500">Terms</div><div style="font-size:12px;color:#222" id="dp-qbo-terms"></div></div>
+            <div><div style="font-size:10px;color:#888;margin-bottom:2px;font-weight:500">AP account</div><div style="font-size:12px;color:#222">Accounts Payable (A/P)</div></div>
+          </div>
+
+          <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:12px">
+            <thead>
+              <tr style="background:#f5f5f5;border-bottom:1px solid #ddd">
+                <th style="text-align:left;padding:5px 7px;font-weight:500;color:#666">#</th>
+                <th style="text-align:left;padding:5px 7px;font-weight:500;color:#666">Account</th>
+                <th style="text-align:left;padding:5px 7px;font-weight:500;color:#666">Description</th>
+                <th style="text-align:right;padding:5px 7px;font-weight:500;color:#666;width:50px">Qty</th>
+                <th style="text-align:right;padding:5px 7px;font-weight:500;color:#666;width:65px">Rate</th>
+                <th style="text-align:right;padding:5px 7px;font-weight:500;color:#666;width:70px">Amount</th>
+              </tr>
+            </thead>
+            <tbody id="dp-qbo-lines"></tbody>
+          </table>
+
+          <div style="display:flex;justify-content:flex-end">
+            <div style="width:200px">
+              <div id="dp-qbo-disc-row" style="display:none;justify-content:space-between;font-size:11px;padding:3px 0;color:#2ca01c">
+                <span>Prepay discount</span><span id="dp-qbo-disc"></span>
+              </div>
+              <div id="dp-qbo-sur-row" style="display:none;justify-content:space-between;font-size:11px;padding:3px 0;color:#b45309">
+                <span>CC surcharge</span><span id="dp-qbo-sur"></span>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600;border-top:1.5px solid #1a1a1a;padding-top:6px;margin-top:4px">
+                <span>Total</span><span id="dp-qbo-total" style="font-family:'DM Mono',monospace"></span>
+              </div>
+            </div>
+          </div>
+
+          <div id="dp-qbo-payment" style="display:none;background:#f9f9f9;border:1px solid #e8e8e8;border-radius:4px;padding:10px;margin-top:12px">
+            <div style="font-size:10px;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Payment schedule</div>
+            <div id="dp-qbo-payments"></div>
+          </div>
+
+          <div style="margin-top:12px;padding-top:10px;border-top:1px solid #e8e8e8;display:flex;justify-content:space-between;align-items:center">
+            <div style="font-size:10px;color:#999" id="dp-qbo-submitted"></div>
+            <a id="dp-qbo-link" href="#" style="font-size:11px;color:#2ca01c;text-decoration:none" target="_blank">Open in QuickBooks ↗</a>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+    <div class="detail-actions" id="dp-actions"></div>
+  </aside>
+
+</div>
+
+<div class="toast" id="toast-el"></div>
+
+<script>
+const BILLS=[
+  {id:1,invoice:"4554852904",poName:"Rush 5 Men",vendor:"Wilson Sporting Goods",category:"Shoes",date:"2026-02-05",due:"2026-04-06",status:"outstanding",amount:8116.56,terms:"Net 60",po:"Rush 5 Men",qbo:"QB-2891",lines:[{desc:"Rush Lite 5 (20 SKUs)",qty:40,amt:2496},{desc:"Rush Pro 5 (28 SKUs)",qty:68,amt:5237.76},{desc:"Rush Tour 5",qty:1,amt:96.52},{desc:"Shipping",qty:1,amt:0}]},
+  {id:2,invoice:"4555082389",vendor:"Wilson Sporting Goods",category:"Balls",date:"2026-02-20",due:"2026-04-21",status:"invoiced",amount:2259.00,terms:"Net 60",po:"Balls Feb",qbo:"",lines:[{desc:"US Open XD TBall 3 Ball Can",qty:20,amt:1807.20},{desc:"US Open XD 4 Ball Can",qty:5,amt:451.80}]},
+  {id:3,invoice:"4555281205",vendor:"Wilson Sporting Goods",category:"Shoes",date:"2026-02-22",due:"2026-04-23",status:"invoiced",amount:15795.72,terms:"Net 60",po:"Rush Spring",qbo:"",lines:[{desc:"Rush Pro 5 (multiple colorways)",qty:120,amt:15795.72}]},
+  {id:4,invoice:"4554377438",vendor:"Wilson Sporting Goods",category:"Grips",date:"2026-01-28",due:"2026-04-28",status:"overdue",amount:46079.80,terms:"4%90 net 120",po:"Grip Bulk Q1",qbo:"QB-2756",lines:[{desc:"Pro Overgrip (various)",qty:8640,amt:46079.80}]},
+  {id:5,invoice:"4554985445",vendor:"Wilson Sporting Goods",category:"Grips",date:"2026-02-10",due:"2026-05-10",status:"outstanding",amount:36993.39,terms:"4%90 net 120",po:"Grip Q2",qbo:"QB-2812",lines:[{desc:"Pro Overgrip assorted",qty:4152,amt:36993.39}]},
+  {id:6,invoice:"4541848037",poName:"",vendor:"Wilson Sporting Goods",category:"Grips",date:"2023-09-15",due:"2024-01-12",status:"paid",paidDate:"2024-01-10",amount:82452.78,terms:"4%90 net 120",po:"Fall Grips 2023",qbo:"QB-1834",lines:[{desc:"Pro Overgrip (various)",qty:27030,amt:82452.78}]},
+  {id:7,invoice:"4541869276",poName:"",vendor:"Wilson Sporting Goods",category:"Rackets",date:"2023-09-22",due:"2024-01-20",status:"paid",paidDate:"2024-01-18",amount:20709.57,terms:"4%90 net 120",po:"Rackets Fall 23",qbo:"QB-1844",lines:[{desc:"Pro Staff, Blade, Clash frames",qty:72,amt:20709.57}]},
+  {id:8,invoice:"4541463923",poName:"",vendor:"Wilson Sporting Goods",category:"Grips",date:"2023-04-06",due:"2023-08-03",status:"paid",paidDate:"2023-07-28",amount:62718.54,terms:"4%90 net 120",po:"Grip Spring 23",qbo:"QB-1601",lines:[{desc:"Pro Overgrip (various)",qty:20538,amt:62718.54}]},
+  {id:9,invoice:"4555515308",vendor:"Wilson Sporting Goods",category:"Grips",date:"2026-03-01",due:"2026-05-30",status:"received",amount:5568.00,terms:"Net 60",po:"Grip Mar",qbo:"QB-2934",lines:[{desc:"Pro Overgrip assorted 5-pack",qty:1364,amt:5568.00}]},
+  {id:10,invoice:"4554852905",poName:"Rush 5 Women Spring",vendor:"Wilson Sporting Goods",category:"Shoes",date:"2026-02-05",due:"2026-04-06",status:"outstanding",amount:1617.42,terms:"Net 60",po:"Rush Storm",qbo:"QB-2892",lines:[{desc:"Rush Pro 5 Black/Wh/Storm",qty:21,amt:1617.42}]},
+  {id:11,invoice:"4554324746",vendor:"Wilson Sporting Goods",category:"Strings",date:"2026-01-20",due:"2026-03-20",status:"blocked",amount:5569.74,terms:"Net 60",po:"String Jan",qbo:"",lines:[{desc:"Alu Power / Element reels",qty:6,amt:5569.74}]},
+  {id:12,invoice:"4555467350",vendor:"Wilson Sporting Goods",category:"Bags",date:"2026-02-28",due:"2026-04-28",status:"invoiced",amount:753.00,terms:"Net 60",po:"Bags Feb",qbo:"",lines:[{desc:"Super Tour bags",qty:6,amt:753.00}]},
+  {id:13,invoice:"",poName:"Rush 5 Women Spring",vendor:"Wilson Sporting Goods",category:"Shoes",date:"2026-03-15",due:"",status:"ordered",amount:12480.00,terms:"Net 60",po:"Rush 5 Women Spring",qbo:"",paidDate:"",lines:[{desc:"Rush Lite 5 Women (all sizes)",qty:200,amt:12480.00}]},
+  {id:14,invoice:"",poName:"Blade V9 Summer",vendor:"Wilson Sporting Goods",category:"Rackets",date:"2026-03-18",due:"",status:"ordered",amount:8241.00,terms:"Net 60",po:"Blade V9 Summer",qbo:"",paidDate:"",lines:[{desc:"Blade 98 V9 frames",qty:54,amt:8241.00}]},
+  {id:15,invoice:"",poName:"",vendor:"Wilson Sporting Goods",category:"Shoes",date:"2026-03-20",due:"",toOrderDate:"2026-04-01",status:"draft",amount:9360.00,terms:"Net 60",po:"",qbo:"",paidDate:"",lines:[{desc:"Rush Pro 5 Fall 2026 (estimated)",qty:120,amt:9360.00}]},
+  {id:16,invoice:"",poName:"",vendor:"Wilson Sporting Goods",category:"Strings",date:"2026-03-20",due:"",toOrderDate:"2026-03-28",status:"draft",amount:3200.00,terms:"Net 60",po:"",qbo:"",paidDate:"",lines:[{desc:"Alu Power / NXT bulk reels (estimated)",qty:20,amt:3200.00}]},
+];
+
+const STATUS_META={
+  draft:       {label:"Draft",       cls:"status-draft",       dot:"dot-draft"},
+  ordered:     {label:"Ordered",     cls:"status-ordered",     dot:"dot-ordered"},
+  invoiced:    {label:"Invoiced",    cls:"status-invoiced",    dot:"dot-invoiced"},
+  blocked:     {label:"Blocked",     cls:"status-blocked",     dot:"dot-blocked"},
+  received:    {label:"Received",    cls:"status-received",    dot:"dot-received"},
+  outstanding: {label:"Outstanding", cls:"status-outstanding", dot:"dot-outstanding"},
+  overdue:     {label:"Overdue",     cls:"status-overdue",     dot:"dot-overdue"},
+  paid:        {label:"Paid",        cls:"status-paid",        dot:"dot-paid"},
+};
+
+const LINES_DATA=[
+  {sku:"WRS336360U080",desc:"Rush Lite 5 White/Black/R sz 8",model:"Rush Lite 5",qty:1,unit:62.40,amt:62.40},
+  {sku:"WRS336360U085",desc:"Rush Lite 5 White/Black/R sz 8.5",model:"Rush Lite 5",qty:2,unit:62.40,amt:124.80},
+  {sku:"WRS336360U090",desc:"Rush Lite 5 White/Black/R sz 9",model:"Rush Lite 5",qty:2,unit:62.40,amt:124.80},
+  {sku:"WRS336360U095",desc:"Rush Lite 5 White/Black/R sz 9.5",model:"Rush Lite 5",qty:2,unit:62.40,amt:124.80},
+  {sku:"WRS336360U100",desc:"Rush Lite 5 White/Black/R sz 10",model:"Rush Lite 5",qty:3,unit:62.40,amt:187.20},
+  {sku:"WRS336360U105",desc:"Rush Lite 5 White/Black/R sz 10.5",model:"Rush Lite 5",qty:3,unit:62.40,amt:187.20},
+  {sku:"WRS336360U110",desc:"Rush Lite 5 White/Black/R sz 11",model:"Rush Lite 5",qty:3,unit:62.40,amt:187.20},
+  {sku:"WRS336360U115",desc:"Rush Lite 5 White/Black/R sz 11.5",model:"Rush Lite 5",qty:2,unit:62.40,amt:124.80},
+  {sku:"WRS337200U100",desc:"Rush Pro 5 White/White/Wh sz 10",model:"Rush Pro 5",qty:3,unit:77.02,amt:231.06},
+  {sku:"WRS337200U105",desc:"Rush Pro 5 White/White/Wh sz 10.5",model:"Rush Pro 5",qty:3,unit:77.02,amt:231.06},
+  {sku:"WRS337200U110",desc:"Rush Pro 5 White/White/Wh sz 11",model:"Rush Pro 5",qty:3,unit:77.02,amt:231.06},
+  {sku:"WRS338490U100",desc:"Rush Pro 5 Black/Rd/Wh sz 10",model:"Rush Pro 5",qty:3,unit:77.02,amt:231.06},
+  {sku:"WRS337230U105",desc:"Rush Tour 5 White/White/W sz 10.5",model:"Rush Tour 5",qty:1,unit:96.52,amt:96.52},
+];
+
+let activeStatus=null, sortCol='due', sortDir='asc';
+
+function fmt(n){return'$'+n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',')}
+function fmtDate(s){if(!s)return'—';const p=s.split('-');return`${p[1]}/${p[2]}/${p[0].slice(2)}`}
+
+function buildMetrics(){
+  const counts={};
+  Object.keys(STATUS_META).forEach(s=>counts[s]=0);
+  BILLS.forEach(b=>counts[b.status]++);
+  const row=document.getElementById('metrics-row');
+  row.innerHTML='';
+  Object.entries(STATUS_META).forEach(([k,v])=>{
+    const el=document.createElement('div');
+    el.className='metric'+(activeStatus===k?' selected':'');
+    el.onclick=()=>{activeStatus=activeStatus===k?null:k;buildMetrics();applyFilters()};
+    const pending=BILLS.filter(b=>b.status===k).reduce((s,b)=>s+b.amount,0);
+    el.innerHTML=`<div class="metric-label"><span class="metric-dot ${v.dot}"></span>${v.label}</div><div class="metric-val">${counts[k]}</div><div class="metric-sub">${fmt(pending)}</div>`;
+    row.appendChild(el);
+  });
+  const filters=document.getElementById('status-filters');
+  filters.innerHTML='';
+  const allChip=document.createElement('div');
+  allChip.className='filter-chip'+(activeStatus===null?' active':'');
+  allChip.textContent='All';
+  allChip.onclick=()=>{activeStatus=null;buildMetrics();applyFilters()};
+  filters.appendChild(allChip);
+  Object.entries(STATUS_META).forEach(([k,v])=>{
+    const c=document.createElement('div');
+    c.className='filter-chip'+(activeStatus===k?' active':'');
+    c.textContent=v.label;
+    c.onclick=()=>{activeStatus=activeStatus===k?null:k;buildMetrics();applyFilters()};
+    filters.appendChild(c);
+  });
+}
+
+function applyFilters(){
+  renderTable(getCurrentFilteredBills());
+  document.getElementById('pending-badge').textContent=BILLS.filter(b=>['draft','ordered','invoiced','outstanding'].includes(b.status)).length;
+}
+
+function renderTable(bills){
+  const tbody=document.getElementById('bills-tbody');
+  tbody.innerHTML='';
+  if(!bills.length){
+    tbody.innerHTML='<tr><td colspan="8" style="padding:40px;text-align:center;color:var(--text-3)">No bills match the current filters</td></tr>';
+    return;
+  }
+  const sm=STATUS_META;
+
+  // Separate orders from standalone bills and invoices linked to orders
+  const orders   = bills.filter(b=>b.status==='ordered');
+  const linked   = new Set(bills.filter(b=>b.status!=='ordered'&&b.poName).map(b=>b.id));
+  const standalone = bills.filter(b=>b.status!=='ordered'&&!b.poName);
+
+  // Render order rows (with expandable children) first, then standalone
+  const expandedOrders = new Set(window._expandedOrders||[]);
+  window._expandedOrders = expandedOrders;
+
+  function renderRow(b, isChild=false){
+    const tr=document.createElement('tr');
+    const isOverdue=b.status==='overdue';
+    if(isChild){
+      tr.className='child-row';
+      tr.onclick=(e)=>{e.stopPropagation();openPanel(b);};
+      tr.innerHTML=`
+        <td><span class="child-invoice-num">${b.invoice||'—'}</span></td>
+        <td style="font-size:12px;color:var(--text-2)">${b.vendor}</td>
+        <td><span class="cat" style="font-size:10px">${b.category}</span></td>
+        <td style="color:var(--text-2);font-size:12px">${fmtDate(b.date)}</td>
+        <td style="color:${isOverdue?'var(--red)':'var(--text-2)'};font-size:12px">${fmtDate(b.due)}</td>
+        <td><span class="status ${sm[b.status].cls}" style="font-size:10px">${sm[b.status].label}</span></td>
+        <td class="td-amt" style="font-size:12px">${fmt(b.amount)}</td>
+        <td style="text-align:right;padding-right:12px"><span style="color:var(--text-3);font-size:14px">›</span></td>`;
+    } else {
+      tr.onclick=()=>openPanel(b);
+      tr.innerHTML=`
+        <td class="td-mono">${b.invoice||(b.poName?'PO: '+b.poName.slice(0,18):'—')}</td>
+        <td>${b.vendor}</td>
+        <td><span class="cat">${b.category}</span></td>
+        <td style="color:var(--text-2)">${fmtDate(b.date)}</td>
+        <td style="color:${b.toOrderDate&&b.status==='draft'?(new Date(b.toOrderDate)<new Date()?'var(--red)':'var(--amber)'):(isOverdue?'var(--red)':'var(--text-2)')};font-weight:${isOverdue||b.toOrderDate&&b.status==='draft'?500:400}">${b.toOrderDate&&b.status==='draft'?('Order by '+fmtDate(b.toOrderDate)):fmtDate(b.due)}</td>
+        <td><span class="status ${sm[b.status].cls}">${sm[b.status].label}</span></td>
+        <td class="td-amt">${fmt(b.amount)}</td>
+        <td style="text-align:right;padding-right:12px"><span style="color:var(--text-3);font-size:16px">›</span></td>`;
+    }
+    return tr;
+  }
+
+  function renderOrderRow(order){
+    const children = BILLS.filter(b=>b.poName===order.poName&&b.status!=='ordered');
+    const isExpanded = expandedOrders.has(order.id);
+    const childTotal = children.reduce((s,c)=>s+c.amount,0);
+    const remaining = order.amount - childTotal;
+
+    const tr=document.createElement('tr');
+    tr.className='order-row'+(isExpanded?' expanded':'');
+    tr.dataset.orderId=order.id;
+
+    const chevron=`<i class="expand-chevron">›</i>`;
+    const childSummary = children.length
+      ? `<div class="order-summary">${children.length} invoice${children.length>1?'s':''} · ${fmt(childTotal)} invoiced${remaining>0.01?' · '+fmt(remaining)+' remaining':' · fully invoiced'}</div>`
+      : `<div class="order-summary">No invoices yet</div>`;
+
+    tr.innerHTML=`
+      <td class="td-mono" style="padding-left:10px">${chevron} ${order.poName||'—'}</td>
+      <td>${order.vendor}${childSummary}</td>
+      <td><span class="cat">${order.category}</span></td>
+      <td style="color:var(--text-2)">${fmtDate(order.date)}</td>
+      <td style="color:var(--text-3)">—</td>
+      <td><span class="status ${sm.ordered.cls}">${sm.ordered.label}</span></td>
+      <td class="td-amt">${fmt(order.amount)}</td>
+      <td style="text-align:right;padding-right:12px"></td>`;
+
+    tr.onclick=(e)=>{
+      // Right side › click opens panel; rest toggles expand
+      if(e.target.closest('td:last-child')){openPanel(order);return;}
+      if(isExpanded){expandedOrders.delete(order.id);}else{expandedOrders.add(order.id);}
+      renderTable(getCurrentFilteredBills());
+    };
+
+    tbody.appendChild(tr);
+
+    if(isExpanded){
+      children.forEach(child=>{
+        tbody.appendChild(renderRow(child, true));
+      });
+      // If order not fully invoiced, show remaining row
+      if(remaining>0.01){
+        const rem=document.createElement('tr');
+        rem.className='child-row';
+        rem.style.opacity='0.5';
+        rem.innerHTML=`
+          <td colspan="6" style="padding-left:28px;font-size:11px;color:var(--text-3);font-style:italic">
+            ${fmt(remaining)} remaining — awaiting invoice
+          </td>
+          <td class="td-amt" style="font-size:11px;color:var(--text-3)">${fmt(remaining)}</td>
+          <td></td>`;
+        tbody.appendChild(rem);
+      }
+    }
+  }
+
+  orders.forEach(o=>renderOrderRow(o));
+  standalone.forEach(b=>tbody.appendChild(renderRow(b)));
+}
+
+function getCurrentFilteredBills(){
+  const vendor=document.getElementById('vendor-filter').value;
+  const cat=document.getElementById('cat-filter').value;
+  const search=document.getElementById('search-input').value.toLowerCase();
+  return BILLS.filter(b=>{
+    if(activeStatus&&b.status!==activeStatus)return false;
+    if(vendor&&b.vendor!==vendor)return false;
+    if(cat&&b.category!==cat)return false;
+    if(search&&!b.invoice.toLowerCase().includes(search)&&!b.vendor.toLowerCase().includes(search)&&!b.po.toLowerCase().includes(search)&&!(b.poName||'').toLowerCase().includes(search))return false;
+    return true;
+  }).sort((a,b2)=>{
+    let va=a[sortCol],vb=b2[sortCol];
+    if(typeof va==='string')va=va.toLowerCase(),vb=(vb||'').toLowerCase();
+    return sortDir==='asc'?(va>vb?1:va<vb?-1:0):(va<vb?1:va>vb?-1:0);
+  });
+}
+
+function sortBy(col){
+  if(sortCol===col)sortDir=sortDir==='asc'?'desc':'asc';
+  else{sortCol=col;sortDir='asc';}
+  document.querySelectorAll('thead th').forEach(th=>{th.classList.remove('sort-asc','sort-desc')});
+  const cols=['invoice','vendor','category','date','due','status','amount'];
+  const idx=cols.indexOf(col);
+  if(idx>=0){
+    const th=document.querySelectorAll('thead th')[idx];
+    if(th)th.classList.add(sortDir==='asc'?'sort-asc':'sort-desc');
+  }
+  applyFilters();
+}
+
+function openPanel(b){
+  const sm=STATUS_META;
+  const invoiceLabel = b.status==='ordered'
+    ? (b.poName ? 'PO · '+b.poName : 'Order — no PO name')
+    : 'Invoice #'+b.invoice+(b.poName?' · PO: '+b.poName:'');
+  document.getElementById('dp-invoice').textContent=invoiceLabel;
+  document.getElementById('dp-vendor').textContent=b.vendor;
+  document.getElementById('dp-status').innerHTML=`<span class="status ${sm[b.status].cls}">${sm[b.status].label}</span>`;
+  document.getElementById('dp-date').textContent=fmtDate(b.date);
+  document.getElementById('dp-due').textContent=fmtDate(b.due);
+  document.getElementById('dp-terms').textContent=b.terms;
+  document.getElementById('dp-cat').textContent=b.category;
+  document.getElementById('dp-po').textContent=b.po||'—';
+  document.getElementById('dp-qbo').textContent=b.qbo||'Not submitted';
+  document.getElementById('dp-paiddate').textContent=b.paidDate?fmtDate(b.paidDate.replace(/-/g,'-')):'—';
+  document.getElementById('dp-paiddate-row').style.display=b.paidDate||b.status==='paid'?'':'none';
+  if(b.toOrderDate){
+    const tod=new Date(b.toOrderDate);const now=new Date();
+    const overdue=tod<now;
+    document.getElementById('dp-toorder').textContent=fmtDate(b.toOrderDate.replace(/-/g,'/'))+(overdue?' — overdue':'');
+    document.getElementById('dp-toorder').style.color=overdue?'var(--red)':'var(--amber)';
+    document.getElementById('dp-toorder-row').style.display='';
+  } else {
+    document.getElementById('dp-toorder-row').style.display='none';
+  }
+  const lines=b.lines.map(l=>`<div class="detail-line"><span class="detail-line-desc" title="${l.desc}">${l.desc}</span><span class="detail-line-qty">×${l.qty}</span><span class="detail-line-amt">${fmt(l.amt)}</span></div>`).join('');
+  document.getElementById('dp-lines').innerHTML=lines;
+  document.getElementById('dp-total').textContent=fmt(b.amount);
+  // QBO journal section — show if bill has been submitted
+  renderDPQBOSection(b);
+
+  const acts=document.getElementById('dp-actions');
+  const actionMap={
+    draft:       `<button class="btn btn-dark" onclick="changeStatus(${b.id},'ordered')">Place order</button><button class="btn" onclick="editDraft(${b.id})">Edit draft</button>`,
+    ordered:     `<button class="btn btn-dark" onclick="promptInvoice(${b.id})">Assign invoice #</button><button class="btn" onclick="changeStatus(${b.id},'invoiced')">Mark invoiced</button>`,
+    invoiced:    `<button class="btn btn-dark" onclick="changeStatus(${b.id},'received')">Mark received</button><button class="btn" onclick="changeStatus(${b.id},'blocked')">Mark blocked</button>`,
+    received:    `<button class="btn btn-dark" onclick="changeStatus(${b.id},'outstanding')">Approve &amp; send to QBO →</button>`,
+    outstanding: `<button class="btn btn-dark" onclick="changeStatus(${b.id},'paid')">Mark paid</button><button class="btn" onclick="toast('Opening in QBO...')">View in QBO ↗</button>`,
+    overdue:     `<button class="btn btn-dark" onclick="changeStatus(${b.id},'paid')">Mark paid</button><button class="btn btn-danger" onclick="toast('Payment reminder sent')">Send reminder</button>`,
+    blocked:     `<button class="btn btn-dark" onclick="changeStatus(${b.id},'invoiced')">Unblock</button>`,
+    paid:        `<button class="btn" onclick="toast('Opening in QBO...')">View in QBO ↗</button>`,
+  };
+  acts.innerHTML=actionsMap||actionMap[b.status]||'';
+  acts.innerHTML=actionMap[b.status]||'';
+  document.getElementById('detail-panel').classList.add('open');
+  document.getElementById('shell').classList.add('panel-open');
+}
+
+function closePanel(){
+  document.getElementById('detail-panel').classList.remove('open');
+  document.getElementById('shell').classList.remove('panel-open');
+}
+
+function renderDPQBOSection(b){
+  const sec = document.getElementById('dp-qbo-section');
+  if(!b.qbo){ sec.style.display='none'; return; }
+  sec.style.display='';
+  document.getElementById('dp-qbo-id').textContent = b.qbo;
+
+  // Try to load the journal entry for this bill
+  // Journal files are named <timestamp>_<invoiceNumber>.json
+  // Try GET /api/journals and find matching entry
+  fetch('http://localhost:3000/api/journals')
+    .then(r=>r.json())
+    .then(data=>{
+      const entry = (data.journals||[]).find(j=>j.invoiceNumber===b.invoice);
+      if(entry) loadJournalEntry(entry.filename);
+      else renderDPQBOFromBill(b);
+    })
+    .catch(()=>renderDPQBOFromBill(b));
+}
+
+function loadJournalEntry(filename){
+  fetch('http://localhost:3000/api/journals/'+filename)
+    .then(r=>r.json())
+    .then(entry=>renderDPQBOFromJournal(entry))
+    .catch(()=>{});
+}
+
+function renderDPQBOFromJournal(entry){
+  const fmt2 = n=>'$'+Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  const payload = entry.qboPayload||{};
+  const bill    = entry.bill||{};
+
+  document.getElementById('dp-qbo-date').textContent = payload.TxnDate||bill.billDate||'—';
+  document.getElementById('dp-qbo-due').textContent  = payload.DueDate||bill.dueDate||'—';
+  document.getElementById('dp-qbo-terms').textContent= payload.Terms||bill.terms||'—';
+  document.getElementById('dp-qbo-total').textContent= fmt2(payload.TotalAmt||bill.totals?.total||0);
+  document.getElementById('dp-qbo-submitted').textContent=
+    entry.submittedAt ? 'Submitted '+entry.submittedAt.slice(0,10) : '';
+
+  // Lines
+  const tbody = document.getElementById('dp-qbo-lines');
+  const lines  = payload.Line||[];
+  tbody.innerHTML = lines.map((l,i)=>{
+    const acct = l.AccountBasedExpenseLineDetail?.AccountRef?.name
+              || l.ItemBasedExpenseLineDetail?.AccountBasedExpenseLineDetail?.AccountRef?.name
+              || 'Inventory';
+    const qty  = l.ItemBasedExpenseLineDetail?.Qty ?? 1;
+    const rate = l.ItemBasedExpenseLineDetail?.UnitPrice ?? l.Amount;
+    const amt  = l.Amount;
+    const isNeg= amt < 0;
+    return `<tr style="border-bottom:1px solid #f0f0f0">
+      <td style="padding:5px 7px;color:#bbb">${i+1}</td>
+      <td style="padding:5px 7px;color:#555;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${acct}</td>
+      <td style="padding:5px 7px;color:#222;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.Description||'—'}</td>
+      <td style="padding:5px 7px;text-align:right;color:#666">${qty}</td>
+      <td style="padding:5px 7px;text-align:right;font-family:'DM Mono',monospace;color:#666">${fmt2(Math.abs(rate||0))}</td>
+      <td style="padding:5px 7px;text-align:right;font-family:'DM Mono',monospace;font-weight:500;color:${isNeg?'#2ca01c':'#1a1a1a'}">${isNeg?'— ':'+'}${fmt2(Math.abs(amt))}</td>
+    </tr>`;
+  }).join('');
+
+  // Discount / surcharge rows — detect from line descriptions
+  const discLine = lines.find(l=>(l.Description||'').toLowerCase().includes('discount'));
+  const surLine  = lines.find(l=>(l.Description||'').toLowerCase().includes('surcharge'));
+  const discRow  = document.getElementById('dp-qbo-disc-row');
+  const surRow   = document.getElementById('dp-qbo-sur-row');
+  if(discLine){ discRow.style.display='flex'; document.getElementById('dp-qbo-disc').textContent='— '+fmt2(Math.abs(discLine.Amount)); }
+  else discRow.style.display='none';
+  if(surLine){ surRow.style.display='flex'; document.getElementById('dp-qbo-sur').textContent='+ '+fmt2(surLine.Amount); }
+  else surRow.style.display='none';
+
+  // Payment schedule
+  const payDiv = document.getElementById('dp-qbo-payment');
+  const payments = entry.paymentPlan||[];
+  if(payments.length){
+    payDiv.style.display='';
+    document.getElementById('dp-qbo-payments').innerHTML = payments.map(p=>`
+      <div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid #eee">
+        <span style="color:#555">${p.cardId}</span>
+        <span style="color:#888">${p.proposedDate||'—'}</span>
+        <span style="font-family:'DM Mono',monospace">${p.amount?fmt2(parseFloat(p.amount)):'—'}</span>
+      </div>`).join('');
+  } else { payDiv.style.display='none'; }
+}
+
+function renderDPQBOFromBill(b){
+  // Fallback: render from bill data when no journal file is found
+  const fmt2 = n=>'$'+Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  document.getElementById('dp-qbo-date').textContent = fmtDate(b.date);
+  document.getElementById('dp-qbo-due').textContent  = fmtDate(b.due);
+  document.getElementById('dp-qbo-terms').textContent= b.terms||'—';
+  document.getElementById('dp-qbo-total').textContent= fmt2(b.amount);
+  document.getElementById('dp-qbo-submitted').textContent = 'QBO ID: '+b.qbo;
+  document.getElementById('dp-qbo-lines').innerHTML = b.lines.map((l,i)=>`
+    <tr style="border-bottom:1px solid #f0f0f0">
+      <td style="padding:5px 7px;color:#bbb">${i+1}</td>
+      <td style="padding:5px 7px;color:#555">Inventory</td>
+      <td style="padding:5px 7px;color:#222">${l.desc}</td>
+      <td style="padding:5px 7px;text-align:right;color:#666">×${l.qty}</td>
+      <td style="padding:5px 7px;text-align:right"></td>
+      <td style="padding:5px 7px;text-align:right;font-family:'DM Mono',monospace;font-weight:500">${fmt2(l.amt)}</td>
+    </tr>`).join('');
+  document.getElementById('dp-qbo-disc-row').style.display='none';
+  document.getElementById('dp-qbo-sur-row').style.display='none';
+  document.getElementById('dp-qbo-payment').style.display='none';
+}
+
+function changeStatus(id,newStatus){
+  const bill=BILLS.find(b=>b.id===id);
+  if(!bill)return;
+  bill.status=newStatus;
+  if(newStatus==='paid'&&!bill.paidDate){
+    const today=new Date();
+    bill.paidDate=today.toISOString().split('T')[0];
+  }
+  buildMetrics();applyFilters();openPanel(bill);
+  toast('Status updated to '+STATUS_META[newStatus].label+(newStatus==='paid'?' · Paid date recorded':''));
+}
+
+function promptInvoice(id){
+  const bill=BILLS.find(b=>b.id===id);
+  if(!bill)return;
+  const num=window.prompt('Enter invoice number for this order:\n(PO: '+(bill.poName||'—')+')', bill.invoice||'');
+  if(num===null)return;
+  bill.invoice=num.trim();
+  if(bill.invoice)bill.status='invoiced';
+  buildMetrics();applyFilters();openPanel(bill);
+  toast(bill.invoice?'Invoice #'+bill.invoice+' assigned':'Invoice number cleared');
+}
+
+function editDraft(id){
+  toast('Draft editing coming soon');
+}
+
+let attachedPDF = null;
+
+function handlePDFSelect(input){
+  const file = input.files[0];
+  if(!file) return;
+  setPDF(file);
+}
+
+function handlePDFDrop(e){
+  e.preventDefault();
+  document.getElementById('attach-zone').style.background='var(--surface-2)';
+  const file = e.dataTransfer.files[0];
+  if(!file || !file.name.toLowerCase().endsWith('.pdf')) {
+    toast('Please drop a PDF file'); return;
+  }
+  setPDF(file);
+}
+
+function setPDF(file){
+  attachedPDF = file;
+  const label = document.getElementById('attach-label');
+  const clear  = document.getElementById('attach-clear');
+  const zone   = document.getElementById('attach-zone');
+  const btn    = document.getElementById('reparse-btn');
+
+  label.textContent = file.name + '  (' + (file.size/1024).toFixed(0) + ' KB)';
+  label.style.color = 'var(--text)';
+  clear.style.display = '';
+  zone.style.borderStyle = 'solid';
+  zone.style.borderColor = 'var(--border-strong)';
+
+  // Enable reparse button
+  btn.disabled = false;
+  btn.style.opacity = '1';
+  btn.style.cursor = 'pointer';
+  btn.style.color = 'var(--text)';
+  btn.title = 'Reparse ' + file.name;
+
+  toast('PDF attached: ' + file.name);
+}
+
+function clearPDF(e){
+  e.stopPropagation();
+  attachedPDF = null;
+  document.getElementById('attach-label').textContent = 'Drop PDF here or click to attach';
+  document.getElementById('attach-label').style.color = 'var(--text-3)';
+  document.getElementById('attach-clear').style.display = 'none';
+  document.getElementById('pdf-input').value = '';
+  const zone = document.getElementById('attach-zone');
+  zone.style.borderStyle = 'dashed';
+  const btn = document.getElementById('reparse-btn');
+  btn.disabled = true;
+  btn.style.opacity = '.5';
+  btn.style.cursor = 'not-allowed';
+  btn.style.color = 'var(--text-3)';
+  btn.title = 'Attach an invoice PDF to enable reparsing';
+}
+
+async function reparseInvoice(){
+  if(!attachedPDF){ toast('No PDF attached'); return; }
+
+  const btn = document.getElementById('reparse-btn');
+  const spinIcon = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="animation:spin .7s linear infinite"><path d="M2 8a6 6 0 0110.7-3.7M14 8a6 6 0 01-10.7 3.7"/><polyline points="12,2 14,4.3 11.5,5"/><polyline points="4,14 2,11.7 4.5,11"/></svg>';
+  const refreshIcon = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8a6 6 0 0110.7-3.7M14 8a6 6 0 01-10.7 3.7"/><polyline points="12,2 14,4.3 11.5,5"/><polyline points="4,14 2,11.7 4.5,11"/></svg>';
+
+  btn.innerHTML = spinIcon + ' Parsing…';
+  btn.disabled = true;
+
+  try {
+    // Read the attached PDF as an ArrayBuffer
+    const arrayBuffer = await attachedPDF.arrayBuffer();
+
+    // POST the actual PDF bytes to the local parser API
+    // The backend (src/server.js) exposes POST /api/parse
+    const response = await fetch('http://localhost:3000/api/parse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/pdf', 'X-Filename': attachedPDF.name },
+      body: arrayBuffer,
+    });
+
+    if(!response.ok) throw new Error('Server returned ' + response.status);
+
+    const bill = await response.json();
+    const items = bill.lineItems || [];
+    const total = bill.totals?.merchandise ?? 0;
+
+    // Update the line items display with fresh parsed data
+    applyParsedBill(bill);
+    toast('✓ Reparsed ' + attachedPDF.name + ' — ' + items.length + ' items, $' + total.toFixed(2));
+
+  } catch(err) {
+    // Server not running or parse failed — show clear message, don't fake results
+    if(err.message.includes('fetch') || err.message.includes('Failed to fetch') || err.message.includes('NetworkError')){
+      toast('⚠ Parser server not running. Start it with: node src/server.js');
+    } else {
+      toast('Parse error: ' + err.message);
+    }
+  } finally {
+    btn.innerHTML = refreshIcon + ' Reparse PDF';
+    btn.disabled = false;
+  }
+}
+
+function applyParsedBill(bill){
+  // Update header fields from parsed bill
+  if(bill.invoiceNumber) setFieldVal('invoice-field', bill.invoiceNumber);
+  if(bill.billDate)      setFieldVal('date-field',    bill.billDate);
+  if(bill.dueDate)       setFieldVal('due-field',      bill.dueDate);
+  if(bill.terms)         setFieldVal('terms-field',    bill.terms);
+  if(bill.purchaseOrder) setFieldVal('po-field',       bill.purchaseOrder);
+  // Re-render line items with fresh data
+  // (In production: update LINES_DATA from bill.lineItems then re-render)
+  renderEnterLines();
+}
+
+function setFieldVal(id, val){
+  const el = document.getElementById(id);
+  if(el) el.value = val;
+}
+
+const CARDS=[
+  {id:'amex-corp',    label:'Amex Corporate',      last4:'4521', type:'cc'},
+  {id:'visa-op',      label:'Visa Operating',       last4:'8834', type:'cc'},
+  {id:'mc-travel',    label:'MC Travel',            last4:'1102', type:'cc'},
+  {id:'ach-chase',    label:'Chase ACH',            last4:'',     type:'ach'},
+  {id:'ach-bofa',     label:'BofA ACH',             last4:'',     type:'ach'},
+  {id:'check',        label:'Check',                last4:'',     type:'check'},
+];
+
+// Payment method surcharge lookup
+const METHOD_SURCHARGE={'cc':0.02,'cc0':0,'ach':0,'debit':0};
+
+let paymentLines=[];
+
+function addPaymentLine(){
+  const id=Date.now();
+  // Default proposed date: bill due date if available, else +30 days
+  const proposed=new Date();
+  proposed.setDate(proposed.getDate()+30);
+  const dateStr=proposed.toISOString().split('T')[0];
+  paymentLines.push({id, cardId:CARDS[0].id, amount:'', proposedDate:dateStr, note:''});
+  renderPaymentLines();
+}
+
+function removePaymentLine(id){
+  paymentLines=paymentLines.filter(l=>l.id!==id);
+  renderPaymentLines();
+}
+
+function updatePaymentLine(id, field, val){
+  const line=paymentLines.find(l=>l.id===id);
+  if(line){ line[field]=val; renderPaymentLines(); }
+}
+
+function renderPaymentLines(){
+  const wrap=document.getElementById('payment-lines-wrap');
+  const emptyHint=document.getElementById('payment-empty-hint');
+  const summaryBar=document.getElementById('payment-summary-bar');
+
+  if(!paymentLines.length){
+    emptyHint.style.display='';
+    summaryBar.style.display='none';
+    wrap.innerHTML='<div style="font-size:12px;color:var(--text-3);padding:6px 0" id="payment-empty-hint">No payments scheduled yet.</div>';
+    return;
+  }
+
+  const billTotal=parseFloat(document.getElementById('et-total').textContent.replace(/[$,]/g,''))||8116.56;
+  const planned=paymentLines.reduce((s,l)=>s+(parseFloat(l.amount)||0),0);
+  const unplanned=Math.max(0,Math.round((billTotal-planned)*100)/100);
+  const pct=Math.min(100,Math.round(planned/billTotal*100));
+
+  wrap.innerHTML=paymentLines.map(l=>{
+    const card=CARDS.find(c=>c.id===l.cardId)||CARDS[0];
+    const isCC=card.type==='cc';
+    const surchargeNote=isCC?' <span style="font-size:10px;color:var(--amber)">(+2% CC fee)</span>':'';
+    return `<div class="pay-row" data-pay-id="${l.id}">
+      <div>
+        <div class="pay-row-label">Payment method${surchargeNote}</div>
+        <select onchange="updatePaymentLine(${l.id},'cardId',this.value)"
+          style="width:100%;padding:6px 8px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:12px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+          ${CARDS.map(c=>`<option value="${c.id}"${c.id===l.cardId?' selected':''}>${c.label}${c.last4?' ···'+c.last4:''}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <div class="pay-row-label">Note / reference</div>
+        <input type="text" placeholder="Optional" value="${l.note}"
+          oninput="updatePaymentLine(${l.id},'note',this.value)"
+          style="width:100%;padding:6px 8px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:12px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+      </div>
+      <div>
+        <div class="pay-row-label">Proposed pay date</div>
+        <input type="date" value="${l.proposedDate}"
+          onchange="updatePaymentLine(${l.id},'proposedDate',this.value)"
+          style="width:100%;padding:6px 8px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:12px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+      </div>
+      <div>
+        <div class="pay-row-label">Amount</div>
+        <input type="number" step="0.01" placeholder="${fmt(billTotal)}" value="${l.amount}"
+          oninput="updatePaymentLine(${l.id},'amount',this.value)"
+          style="width:100%;padding:6px 8px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:12px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+      </div>
+      <button onclick="removePaymentLine(${l.id})"
+        style="padding:6px;border:0.5px solid var(--border-strong);border-radius:var(--radius);background:transparent;cursor:pointer;color:var(--text-3);font-size:14px;margin-bottom:1px">×</button>
+    </div>`;
+  }).join('');
+
+  // Summary bar
+  summaryBar.style.display='';
+  document.getElementById('pay-planned').textContent=fmt(planned);
+  const unpEl=document.getElementById('pay-unplanned');
+  unpEl.textContent=fmt(unplanned);
+  unpEl.style.color=unplanned<0.01?'var(--green)':unplanned<billTotal*0.5?'var(--amber)':'var(--text-2)';
+  document.getElementById('pay-balance-fill').style.width=pct+'%';
+  document.getElementById('pay-balance-fill').style.background=pct>=100?'var(--green)':pct>50?'var(--amber)':'var(--blue)';
+}
+
+function showView(name){
+  ['bills','enter','vendors','qbo','categories'].forEach(v=>{
+    const el=document.getElementById('view-'+v);
+    if(el)el.style.display=v===name?'flex':'none';
+  });
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
+  const navMap={bills:0,enter:1,orders:2,vendors:5,'add-vendor':5,qbo:3,categories:4};
+  const navItems=document.querySelectorAll('.nav-item');
+  if(navItems[navMap[name]])navItems[navMap[name]].classList.add('active');
+  if(name!=='bills')closePanel();
+  if(name==='enter')renderEnterLines();
+}
+
+function renderEnterLines(){
+  const mode=document.getElementById('enter-group').value;
+  const tbody=document.getElementById('enter-tbody');
+  tbody.innerHTML='';
+  let rows=[];
+  if(mode==='all'){
+    rows=LINES_DATA.map((l,i)=>({num:i+1,desc:l.desc,sku:l.sku,qty:l.qty,unit:l.unit,amt:l.amt}));
+  } else if(mode==='model'){
+    const g={};
+    LINES_DATA.forEach(l=>{if(!g[l.model])g[l.model]={desc:l.model,sku:'—',qty:0,unit:null,amt:0};g[l.model].qty+=l.qty;g[l.model].amt+=l.amt;});
+    rows=Object.values(g).map((m,i)=>({num:i+1,...m}));
+  } else {
+    const tot=LINES_DATA.reduce((s,l)=>s+l.amt,0);
+    rows=[{num:1,desc:'Rush 5 Men — all sizes and colors',sku:'—',qty:LINES_DATA.reduce((s,l)=>s+l.qty,0),unit:null,amt:tot}];
+  }
+  const grand=rows.reduce((s,r)=>s+r.amt,0);
+  rows.forEach(r=>{
+    const tr=document.createElement('tr');
+    tr.style.borderBottom='0.5px solid var(--border)';
+    tr.innerHTML=`<td style="padding:5px 8px;font-size:12px;color:var(--text-2)">Inventory</td><td style="padding:5px 8px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px" title="${r.desc}">${r.desc}</td><td style="padding:5px 8px;font-size:11px;font-family:'DM Mono',monospace;color:var(--text-3)">${r.sku}</td><td style="padding:5px 8px;font-size:12px;text-align:right">${r.qty}</td><td style="padding:5px 8px;font-size:12px;text-align:right;font-family:'DM Mono',monospace">${r.unit!=null?fmt(r.unit):'—'}</td><td style="padding:5px 8px;font-size:12px;text-align:right;font-family:'DM Mono',monospace;font-weight:500">${fmt(r.amt)}</td>`;
+    tbody.appendChild(tr);
+  });
+  const sub=document.createElement('tr');
+  sub.style.background='var(--surface-2)';
+  sub.innerHTML=`<td colspan="5" style="padding:7px 8px;font-size:12px;font-weight:500;text-align:right">Subtotal</td><td style="padding:7px 8px;font-size:12px;font-weight:500;text-align:right;font-family:'DM Mono',monospace">${fmt(grand)}</td>`;
+  tbody.appendChild(sub);
+}
+
+const QB_ACCOUNTS=[
+  'Bank Charges & Fees','Cost of Goods Sold','Credit Card Processing Fees',
+  'Operating Expenses','Shipping & Freight','Surcharges & Tariffs',
+  'Purchases','Other Expense',
+];
+
+let extraLines=[];
+
+function onTermsChange(){
+  const val=document.getElementById('pay-terms').value;
+  const isCustom=val.startsWith('custom');
+  const customWrap=document.getElementById('custom-terms-wrap');
+  customWrap.style.display=isCustom?'':'none';
+
+  let pct, days;
+  if(isCustom){
+    pct=parseFloat(document.getElementById('custom-disc-pct').value)||0;
+    days=parseFloat(document.getElementById('custom-disc-days').value)||0;
+  } else {
+    [,pct,days]=val.split('|');
+    pct=parseFloat(pct); days=parseFloat(days);
+  }
+
+  const hint=document.getElementById('prepay-hint');
+  const label=document.getElementById('prepay-label');
+  if(pct>0&&days>0){
+    hint.textContent='Enter pay-by date to earn '+pct+'% discount (within '+days+' days)';
+    label.textContent='('+pct+'% discount available)';
+  } else if(isCustom&&pct===0){
+    hint.textContent='No prepay discount — set discount % above to enable';
+    label.textContent='';
+  } else {
+    hint.textContent='No prepay discount on this term';
+    label.textContent='';
+  }
+  updateEnterTotals();
+}
+
+function updateEnterTotals(){
+  const merch=8116.56;
+  const ship=parseFloat(document.getElementById('ship-amt').value)||0;
+  const method=document.getElementById('pay-method').value;
+  const termsVal=document.getElementById('pay-terms').value;
+  const isCustom=termsVal.startsWith('custom');
+  let discPct, discDays;
+  if(isCustom){
+    discPct=parseFloat(document.getElementById('custom-disc-pct').value)||0;
+    discDays=parseFloat(document.getElementById('custom-disc-days').value)||0;
+  } else {
+    const parts=termsVal.split('|');
+    discPct=parseFloat(parts[1]); discDays=parseFloat(parts[2]);
+  }
+  const payByDate=document.getElementById('prepay-date').value;
+
+  // Prepay discount — only if pay-by date is set and discount % defined
+  let disc=0;
+  if(discPct>0&&payByDate){
+    disc=Math.round(merch*discPct/100*100)/100;
+    document.getElementById('et-disc-row').style.display='';
+  } else {
+    document.getElementById('et-disc-row').style.display='none';
+  }
+
+  // CC surcharge
+  const surchargeRate=METHOD_SURCHARGE[method]??0;
+  const surcharge=surchargeRate>0?Math.round((merch+ship-disc)*surchargeRate*100)/100:0;
+  document.getElementById('et-surcharge-row').style.display=surchargeRate>0?'':'none';
+  document.getElementById('surcharge-account-wrap').style.display=surchargeRate>0?'':'none';
+  document.getElementById('et-surcharge').textContent='+ '+fmt(surcharge)+' ('+Math.round(surchargeRate*100)+'%)';
+
+
+  // Extra lines
+  const extTotal=extraLines.reduce((s,l)=>s+l.amount,0);
+  const extDiv=document.getElementById('et-extra-lines-totals');
+  extDiv.innerHTML=extraLines.map(l=>
+    `<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span style="color:var(--text-2)">${l.desc||'Additional line'}</span><span style="font-family:'DM Mono',monospace">+ ${fmt(l.amount)}</span></div>`
+  ).join('');
+
+  const total=Math.round((merch+ship-disc+surcharge+extTotal)*100)/100;
+  document.getElementById('et-ship').textContent=fmt(ship);
+  document.getElementById('et-disc').textContent='— '+fmt(disc);
+  document.getElementById('et-total').textContent=fmt(total);
+
+  const ok=Math.abs(total-(8116.56+surcharge+extTotal))<0.02;
+  const v=document.getElementById('et-verify');
+  v.textContent=ok?'✓ Verified against invoice stated total':'✗ Total differs — review adjustments';
+  v.style.color=ok?'var(--green)':'var(--red)';
+}
+
+function addExtraLine(defaults={}){
+  const id=Date.now();
+  const line={id,desc:defaults.desc||'',account:defaults.account||'Surcharges & Tariffs',amount:defaults.amount||0};
+  extraLines.push(line);
+  renderExtraLines();
+}
+
+function removeExtraLine(id){
+  extraLines=extraLines.filter(l=>l.id!==id);
+  renderExtraLines();
+  updateEnterTotals();
+}
+
+function renderExtraLines(){
+  const wrap=document.getElementById('extra-lines-wrap');
+  if(!extraLines.length){
+    wrap.innerHTML='<div style="font-size:12px;color:var(--text-3);padding:8px 0">No additional lines. Use this for tariff surcharges, freight, restocking fees, or any other charges that need their own QB account.</div>';
+    updateEnterTotals();
+    return;
+  }
+  wrap.innerHTML=extraLines.map(l=>`
+    <div style="display:grid;grid-template-columns:1fr 1fr 100px 32px;gap:8px;align-items:center;margin-bottom:8px" data-line-id="${l.id}">
+      <div>
+        <div style="font-size:11px;color:var(--text-3);margin-bottom:3px">Description</div>
+        <input type="text" placeholder="e.g. Tariff surcharge Q2" value="${l.desc}"
+          oninput="updateExtraLine(${l.id},'desc',this.value)"
+          style="width:100%;padding:6px 8px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:12px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-3);margin-bottom:3px">QB account</div>
+        <select oninput="updateExtraLine(${l.id},'account',this.value)"
+          style="width:100%;padding:6px 8px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:12px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+          ${QB_ACCOUNTS.map(a=>`<option${a===l.account?' selected':''}>${a}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-3);margin-bottom:3px">Amount</div>
+        <input type="number" step="0.01" placeholder="0.00" value="${l.amount||''}"
+          oninput="updateExtraLine(${l.id},'amount',parseFloat(this.value)||0)"
+          style="width:100%;padding:6px 8px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:12px;font-family:inherit;background:var(--surface-2);color:var(--text)">
+      </div>
+      <button onclick="removeExtraLine(${l.id})"
+        style="margin-top:16px;padding:6px;border:0.5px solid var(--border-strong);border-radius:var(--radius);background:transparent;cursor:pointer;color:var(--text-3);font-size:14px;line-height:1">×</button>
+    </div>`).join('');
+  updateEnterTotals();
+}
+
+function updateExtraLine(id,field,val){
+  const line=extraLines.find(l=>l.id===id);
+  if(line){line[field]=val;updateEnterTotals();}
+}
+
+function showQBOPreview(){
+  const fmt2 = n => '$'+n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  const merch = 8116.56;
+  const ship  = parseFloat(document.getElementById('ship-amt').value)||0;
+  const method= document.getElementById('pay-method').value;
+  const termsVal = document.getElementById('pay-terms').value;
+  const isCustom = termsVal.startsWith('custom');
+  let discPct = isCustom
+    ? (parseFloat(document.getElementById('custom-disc-pct').value)||0)
+    : parseFloat(termsVal.split('|')[1]);
+  const payByDate = document.getElementById('prepay-date').value;
+  const disc = discPct>0&&payByDate ? Math.round(merch*discPct/100*100)/100 : 0;
+  const surchargeRate = METHOD_SURCHARGE[method]||0;
+  const surcharge = surchargeRate>0 ? Math.round((merch+ship-disc)*surchargeRate*100)/100 : 0;
+  const total = Math.round((merch+ship-disc+surcharge+extraLines.reduce((s,l)=>s+l.amount,0))*100)/100;
+
+  // Header fields
+  document.getElementById('qp-vendor').textContent   = 'Wilson Sporting Goods';
+  document.getElementById('qp-terms').textContent    = document.getElementById('pay-terms').options[document.getElementById('pay-terms').selectedIndex].text.split('—')[0].trim();
+  document.getElementById('qp-billno').textContent   = '4554852904';
+  document.getElementById('qp-billdate').textContent = '02/05/2026';
+  document.getElementById('qp-duedate').textContent  = '04/06/2026';
+  document.getElementById('qp-memo').textContent     = 'Rush 5 Men';
+  document.getElementById('qp-subtotal').textContent = fmt2(merch+ship);
+
+  // Lines — collapsed by model for QBO readability
+  const lineGroups = {};
+  LINES_DATA.forEach(l=>{
+    if(!lineGroups[l.model]) lineGroups[l.model]={desc:l.model,qty:0,unit:l.unit,amt:0};
+    lineGroups[l.model].qty+=l.qty; lineGroups[l.model].amt+=l.amt;
+  });
+  let rows = Object.values(lineGroups);
+  if(ship>0) rows.push({desc:'Shipping & freight',qty:1,unit:ship,amt:ship,acct:'Shipping & Freight'});
+  extraLines.forEach(l=>{ if(l.amount>0) rows.push({desc:l.desc||'Additional charge',qty:1,unit:l.amount,amt:l.amount,acct:l.account}); });
+
+  const tbody = document.getElementById('qp-lines');
+  tbody.innerHTML = rows.map((r,i)=>`
+    <tr style="border-bottom:1px solid #f0f0f0">
+      <td style="padding:7px 10px;color:#999">${i+1}</td>
+      <td style="padding:7px 10px;color:#444">${r.acct||'Inventory'}</td>
+      <td style="padding:7px 10px;color:#222">${r.desc}</td>
+      <td style="padding:7px 10px;text-align:right;color:#444">${r.qty}</td>
+      <td style="padding:7px 10px;text-align:right;font-family:monospace;color:#444">${fmt2(r.unit)}</td>
+      <td style="padding:7px 10px;text-align:right;font-family:monospace;font-weight:500">${fmt2(r.amt)}</td>
+    </tr>`).join('');
+
+  // Discount / surcharge rows
+  const discRow = document.getElementById('qp-discount-row');
+  const surRow  = document.getElementById('qp-surcharge-row');
+  if(disc>0){ discRow.style.display='flex'; document.getElementById('qp-discount').textContent='— '+fmt2(disc); }
+  else discRow.style.display='none';
+  if(surcharge>0){ surRow.style.display='flex'; document.getElementById('qp-surcharge').textContent='+ '+fmt2(surcharge); }
+  else surRow.style.display='none';
+  document.getElementById('qp-total').textContent = fmt2(total);
+
+  // Payment schedule
+  const paySection = document.getElementById('qp-payment-section');
+  const payDiv = document.getElementById('qp-payments');
+  if(paymentLines.length){
+    paySection.style.display='';
+    const cardName = id => (CARDS.find(c=>c.id===id)||CARDS[0]).label;
+    payDiv.innerHTML = paymentLines.map(p=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:4px 0;border-bottom:1px solid #eee">
+        <span style="color:#444">${cardName(p.cardId)}${p.note?' · '+p.note:''}</span>
+        <span style="color:#666">${p.proposedDate||'—'}</span>
+        <span style="font-family:monospace;font-weight:500">${p.amount?fmt2(parseFloat(p.amount)):'—'}</span>
+      </div>`).join('');
+    const planned = paymentLines.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+    const gap = Math.abs(planned-total);
+    if(gap>0.01) payDiv.innerHTML += `<div style="color:#b45309;font-size:11px;margin-top:8px">⚠ Payment plan ${fmt2(planned)} doesn't match total ${fmt2(total)} — difference of ${fmt2(gap)}</div>`;
+  } else {
+    paySection.style.display='none';
+  }
+
+  // Warnings
+  const warn = document.getElementById('qp-warnings');
+  const warnings = [];
+  if(!attachedPDF) warnings.push('No invoice PDF attached — attach the original PDF before submitting.');
+  if(disc>0&&!payByDate) warnings.push('Prepay discount selected but no pay-by date set.');
+  warn.innerHTML = warnings.map(w=>`
+    <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 12px;background:#fef3dc;border:1px solid #f5c842;border-radius:4px;font-size:12px;color:#7a4a00;margin-bottom:6px">
+      <span style="flex-shrink:0">⚠</span>${w}
+    </div>`).join('');
+
+  // Show preview, scroll to it
+  document.getElementById('qbo-preview-card').style.display='';
+  document.getElementById('bill-action-btns').style.display='none';
+  document.getElementById('qbo-preview-card').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function closeQBOPreview(){
+  document.getElementById('qbo-preview-card').style.display='none';
+  document.getElementById('bill-action-btns').style.display='flex';
+}
+
+async function approveBillEnter(){
+  const btn = document.querySelector('#qbo-preview-card button[onclick="approveBillEnter()"]');
+  if(btn){ btn.textContent='Submitting…'; btn.disabled=true; }
+
+  const fmt2 = n => '$'+n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  const merch = 8116.56;
+  const ship  = parseFloat(document.getElementById('ship-amt').value)||0;
+  const method= document.getElementById('pay-method').value;
+  const termsVal = document.getElementById('pay-terms').value;
+  const isCustom = termsVal.startsWith('custom');
+  const discPct  = isCustom
+    ? (parseFloat(document.getElementById('custom-disc-pct').value)||0)
+    : parseFloat(termsVal.split('|')[1]);
+  const payByDate= document.getElementById('prepay-date').value;
+  const disc     = discPct>0&&payByDate ? Math.round(merch*discPct/100*100)/100 : 0;
+  const surcharge= (METHOD_SURCHARGE[method]||0)>0
+    ? Math.round((merch+ship-disc)*(METHOD_SURCHARGE[method])*100)/100 : 0;
+  const extrasTotal = extraLines.reduce((s,l)=>s+(l.amount||0),0);
+  const total = Math.round((merch+ship-disc+surcharge+extrasTotal)*100)/100;
+
+  // Build QBO bill line items (model-grouped + extras + shipping)
+  const lineGroups={};
+  LINES_DATA.forEach(l=>{
+    if(!lineGroups[l.model])lineGroups[l.model]={desc:l.model,qty:0,unit:l.unit,amt:0,account:'Inventory'};
+    lineGroups[l.model].qty+=l.qty; lineGroups[l.model].amt+=l.amt;
+  });
+  const qboLines = Object.values(lineGroups).map((r,i)=>({
+    Id: String(i+1),
+    DetailType:'ItemBasedExpenseLineDetail',
+    Amount: r.amt,
+    Description: r.desc,
+    ItemBasedExpenseLineDetail:{
+      Qty: r.qty,
+      UnitPrice: r.unit,
+      AccountBasedExpenseLineDetail:{ AccountRef:{ name: r.account } }
+    }
+  }));
+  let lineIdx = qboLines.length+1;
+  if(ship>0) qboLines.push({
+    Id:String(lineIdx++), DetailType:'AccountBasedExpenseLineDetail',
+    Amount:ship, Description:'Shipping & Freight',
+    AccountBasedExpenseLineDetail:{ AccountRef:{ name:'Shipping & Freight' } }
+  });
+  extraLines.forEach(l=>{ if(l.amount>0) qboLines.push({
+    Id:String(lineIdx++), DetailType:'AccountBasedExpenseLineDetail',
+    Amount:l.amount, Description:l.desc||'Additional charge',
+    AccountBasedExpenseLineDetail:{ AccountRef:{ name:l.account } }
+  }); });
+  if(disc>0) qboLines.push({
+    Id:String(lineIdx++), DetailType:'AccountBasedExpenseLineDetail',
+    Amount:-disc, Description:'Prepay discount '+discPct+'%',
+    AccountBasedExpenseLineDetail:{ AccountRef:{ name:'Purchase Discounts' } }
+  });
+  if(surcharge>0) qboLines.push({
+    Id:String(lineIdx++), DetailType:'AccountBasedExpenseLineDetail',
+    Amount:surcharge, Description:'Credit card surcharge '+(METHOD_SURCHARGE[method]*100)+'%',
+    AccountBasedExpenseLineDetail:{ AccountRef:{ name:'Bank Charges & Fees' } }
+  });
+
+  const qboPayload = {
+    VendorRef:   { name:'Wilson Sporting Goods' },
+    APAccountRef:{ name:'Accounts Payable (A/P)' },
+    TxnDate:     '2026-02-05',
+    DueDate:     '2026-04-06',
+    DocNumber:   '4554852904',
+    Memo:        'Rush 5 Men',
+    TotalAmt:    total,
+    Line:        qboLines,
+  };
+
+  const bill = {
+    vendor:'Wilson Sporting Goods', invoiceNumber:'4554852904',
+    billDate:'2026-02-05', dueDate:'2026-04-06',
+    terms: document.getElementById('pay-terms').options[document.getElementById('pay-terms').selectedIndex].text,
+    purchaseOrder:'Rush 5 Men',
+    totals:{ merchandise:merch, shipping:ship, prepayDiscount:disc, surcharge, total },
+    paymentMethod: method,
+    lineItemCount: LINES_DATA.length,
+  };
+
+  try {
+    const resp = await fetch('http://localhost:3000/api/submit', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        bill,
+        qboPayload,
+        paymentPlan: paymentLines,
+        attachedFilename: attachedPDF?.name || null,
+      })
+    });
+    const result = await resp.json();
+
+    if(result.success){
+      // Update bill status in local state
+      BILLS[0].status='outstanding';
+      BILLS[0].qbo = result.qboBillId || 'QB-submitted';
+      buildMetrics(); applyFilters();
+      closeQBOPreview();
+      showView('bills');
+      toast('✓ Bill submitted to QuickBooks · Journal saved: '+result.journalFile);
+    } else {
+      // Submission failed but journal was saved — show error in preview
+      const warn=document.getElementById('qp-warnings');
+      warn.innerHTML=`<div style="display:flex;gap:8px;padding:10px 12px;background:#fdeaea;border:1px solid #f09595;border-radius:4px;font-size:12px;color:#7a1f1f;margin-bottom:6px">
+        <span>✗</span><div><strong>QuickBooks submission failed</strong><br>${result.error}<br>
+        <span style="opacity:.8">Journal entry saved locally as ${result.journalFile}</span></div></div>`;
+      if(btn){ btn.textContent='Retry submission'; btn.disabled=false; }
+    }
+  } catch(err){
+    const warn=document.getElementById('qp-warnings');
+    warn.innerHTML=`<div style="display:flex;gap:8px;padding:10px 12px;background:#fdeaea;border:1px solid #f09595;border-radius:4px;font-size:12px;color:#7a1f1f;margin-bottom:6px">
+      <span>✗</span><div><strong>Server error</strong><br>${err.message}<br>
+      <span style="opacity:.8">Is the server running? Try: node src/server.js</span></div></div>`;
+    if(btn){ btn.textContent='Retry submission'; btn.disabled=false; }
+  }
+}
+
+function toast(msg){
+  const el=document.getElementById('toast-el');
+  el.textContent=msg;el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),2800);
+}
+
+buildMetrics();
+applyFilters();
+
+const VENDORS=[
+  {id:1,name:"Wilson Sporting Goods",display:"Wilson",account:"Inventory",category:"Shoes",skuPrefix:"WRS,WRZ,WR",invoices:61,trained:61,totalBilled:384122.97,lastBill:"2026-03-01"},
+];
+
+function renderVendorGrid(){
+  const grid=document.getElementById('vendor-grid');
+  if(!grid)return;
+  grid.innerHTML='';
+  VENDORS.forEach(v=>{
+    const card=document.createElement('div');
+    card.className='vendor-card';
+    card.innerHTML=`
+      <div class="vendor-card-name">${v.name}</div>
+      <div class="vendor-card-meta">SKU prefix: ${v.skuPrefix} · Account: ${v.account}</div>
+      <div class="vendor-card-stats">
+        <div class="vendor-stat"><div class="vendor-stat-label">Invoices</div><div class="vendor-stat-val">${v.invoices}</div></div>
+        <div class="vendor-stat"><div class="vendor-stat-label">Trained on</div><div class="vendor-stat-val">${v.trained}</div></div>
+        <div class="vendor-stat"><div class="vendor-stat-label">Total billed</div><div class="vendor-stat-val" style="font-size:12px">${fmt(v.totalBilled)}</div></div>
+      </div>`;
+    grid.appendChild(card);
+  });
+  const addCard=document.createElement('div');
+  addCard.className='add-vendor-card';
+  addCard.onclick=openAddVendor;
+  addCard.innerHTML=`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg><div style="font-size:13px;font-weight:500">Add vendor</div>`;
+  grid.appendChild(addCard);
+}
+
+let selectedFiles=[];
+
+function openAddVendor(){
+  showView('add-vendor');
+  wizardNext(1);
+  selectedFiles=[];
+  document.getElementById('v-name').value='';
+  document.getElementById('v-display').value='';
+  document.getElementById('v-keywords').value='';
+  document.getElementById('file-list').style.display='none';
+}
+
+function closeAddVendor(){
+  showView('vendors');
+}
+
+function wizardNext(step){
+  [1,2,3].forEach(s=>{
+    document.getElementById('wstep-'+s).style.display=s===step?'':'none';
+  });
+  document.querySelectorAll('.wstep').forEach(el=>{
+    const s=parseInt(el.dataset.step);
+    el.classList.remove('active','done');
+    if(s===step)el.classList.add('active');
+    else if(s<step)el.classList.add('done');
+  });
+  if(step===3)buildReviewStep();
+}
+
+function handleFolderSelect(input){
+  selectedFiles=Array.from(input.files).filter(f=>f.name.toLowerCase().endsWith('.pdf'));
+  const listEl=document.getElementById('file-list');
+  const countEl=document.getElementById('file-count-label');
+  const inner=document.getElementById('file-list-inner');
+  const trainBtn=document.getElementById('train-btn');
+  if(!selectedFiles.length){listEl.style.display='none';return;}
+  countEl.textContent=selectedFiles.length+' PDF'+(selectedFiles.length>1?'s':'')+' selected';
+  inner.innerHTML=selectedFiles.slice(0,50).map(f=>
+    `<div style="padding:6px 10px;font-size:12px;font-family:'DM Mono',monospace;border-bottom:0.5px solid var(--border);color:var(--text-2)">${f.name}</div>`
+  ).join('')+(selectedFiles.length>50?`<div style="padding:6px 10px;font-size:11px;color:var(--text-3)">…and ${selectedFiles.length-50} more</div>`:'');
+  listEl.style.display='block';
+  trainBtn.disabled=false;
+  trainBtn.style.opacity='1';
+  trainBtn.style.cursor='pointer';
+}
+
+function clearFiles(){
+  selectedFiles=[];
+  document.getElementById('file-list').style.display='none';
+  document.getElementById('folder-input').value='';
+  const trainBtn=document.getElementById('train-btn');
+  trainBtn.disabled=true;
+  trainBtn.style.opacity='.5';
+  trainBtn.style.cursor='not-allowed';
+}
+
+function runTraining(){
+  const btn=document.getElementById('train-btn');
+  btn.textContent='Analysing…';
+  btn.disabled=true;
+  btn.style.opacity='.7';
+  // Simulate analysis — in production this calls the Node parser
+  setTimeout(()=>{wizardNext(3);},1200);
+}
+
+function buildReviewStep(){
+  const name=document.getElementById('v-name').value||'New Vendor';
+  const account=document.getElementById('v-account').value;
+  const skipped=selectedFiles.length===0;
+  const cfg=document.getElementById('detected-config');
+  cfg.innerHTML=`
+    <div class="config-field"><span class="config-key">Vendor name</span><input class="config-input" value="${name}"></div>
+    <div class="config-field"><span class="config-key">QBO vendor name</span><input class="config-input" value="${name}"></div>
+    <div class="config-field"><span class="config-key">Default account</span><input class="config-input" value="${account}"></div>
+    <div class="config-field"><span class="config-key">SKU prefix</span><input class="config-input" value="${skipped?'':'WR'}" placeholder="e.g. WRS, WRZ"></div>
+    <div class="config-field"><span class="config-key">Invoice # field</span><input class="config-input" value="${skipped?'':'INVOICE #'}"></div>
+    <div class="config-field"><span class="config-key">Date field</span><input class="config-input" value="${skipped?'':'DATE:'}"></div>
+    <div class="config-field"><span class="config-key">Terms field</span><input class="config-input" value="${skipped?'':'TERMS OF PAYMENT'}"></div>
+    <div class="config-field"><span class="config-key">Total field</span><input class="config-input" value="${skipped?'':'TOTAL'}"></div>
+    <div class="config-field"><span class="config-key">Qty column</span><input class="config-input" value="${skipped?'':'Qty Shipped'}"></div>
+    <div class="config-field"><span class="config-key">SKU column</span><input class="config-input" value="${skipped?'':'Stock Number'}"></div>
+    <div class="config-field"><span class="config-key">Unit price column</span><input class="config-input" value="${skipped?'':'Unit Price'}"></div>
+    <div class="config-field"><span class="config-key">Training invoices</span><input class="config-input" value="${skipped?'None (skipped)':selectedFiles.length+' PDFs'}" readonly style="color:var(--text-3)"></div>
+    ${skipped?'<div style="font-size:12px;color:var(--amber);padding:8px 0">No training invoices provided — field mappings are blank. You can add them manually or come back later to train.</div>':'<div style="font-size:12px;color:var(--green);padding:8px 0">✓ Field mappings auto-detected from '+selectedFiles.length+' invoice'+(selectedFiles.length>1?'s':'')+'</div>'}`;
+  buildTermsRows();
+}
+
+function buildTermsRows(){
+  const rows=document.getElementById('terms-rows');
+  const defaultTerms=[
+    {term:'Net 60',days:'60',prepay:'',withinDays:''},
+    {term:'4%90, net 120',days:'120',prepay:'4',withinDays:'90'},
+    {term:'Net 30',days:'30',prepay:'',withinDays:''},
+  ];
+  rows.innerHTML='';
+  defaultTerms.forEach(t=>addTermsRow(t));
+}
+
+function addTermsRow(vals={}){
+  const rows=document.getElementById('terms-rows');
+  const row=document.createElement('div');
+  row.className='terms-row';
+  row.innerHTML=`
+    <input class="config-input" placeholder="Term string" value="${vals.term||''}">
+    <input class="config-input" placeholder="Days due" value="${vals.days||''}">
+    <input class="config-input" placeholder="Disc %" value="${vals.prepay||''}">
+    <input class="config-input" placeholder="Within N days" value="${vals.withinDays||''}">
+    <button style="padding:4px 8px;border:0.5px solid var(--border-strong);border-radius:var(--radius);background:transparent;cursor:pointer;color:var(--text-3);font-size:14px" onclick="this.closest('.terms-row').remove()">×</button>`;
+  rows.appendChild(row);
+}
+
+function saveVendor(){
+  const name=document.getElementById('v-name').value||'New Vendor';
+  const display=document.getElementById('v-display').value||name;
+  const account=document.getElementById('v-account').value;
+  const category=document.getElementById('v-category').value;
+  VENDORS.push({
+    id:VENDORS.length+1,name,display,account,category,
+    skuPrefix:'WR',invoices:selectedFiles.length,trained:selectedFiles.length,
+    totalBilled:0,lastBill:'—'
+  });
+  closeAddVendor();
+  renderVendorGrid();
+  // Update sidebar footer
+  document.querySelector('.vendor-pill').textContent='Connected: '+VENDORS.map(v=>v.display||v.name.split(' ')[0]).join(' · ');
+  toast('Vendor "'+name+'" saved');
+}
+
+// Patch showView to handle add-vendor
+// ── Orders ───────────────────────────────────────────────────────────────────
+
+let ordersSortCol='date', ordersSortDir='desc';
+
+function openNewOrder(){
+  document.getElementById('new-order-form').style.display='';
+  // Default date to today
+  document.getElementById('no-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('new-order-form').scrollIntoView({behavior:'smooth'});
+}
+function closeNewOrder(){ document.getElementById('new-order-form').style.display='none'; }
+
+function saveNewOrder(){
+  const vendor   = document.getElementById('no-vendor').value;
+  const poName   = document.getElementById('no-poname').value.trim();
+  const category = document.getElementById('no-category').value;
+  const date     = document.getElementById('no-date').value;
+  const amount   = parseFloat(document.getElementById('no-amount').value)||0;
+  const terms    = document.getElementById('no-terms').value;
+  const notes    = document.getElementById('no-notes').value.trim();
+
+  if(!vendor){ toast('Please select a vendor'); return; }
+
+  const budget    = parseFloat(document.getElementById('no-budget').value)||0;
+  const account   = document.getElementById('no-account').value;
+  const delivery  = document.getElementById('no-delivery').value;
+  const toOrder   = document.getElementById('no-toorder').value;
+  const paymethod = document.getElementById('no-paymethod').value;
+  const season    = document.getElementById('no-season').value.trim();
+
+  const id = Date.now();
+  const newBill = {
+    id, invoice:'', poName: poName||'(no PO name)',
+    vendor, category: category||'—', date, due:'', status:'ordered',
+    amount, budget: budget||null, account, terms,
+    deliveryDate: delivery||null, toOrderDate: toOrder||null,
+    paymentMethod: paymethod||null, season: season||null,
+    po: poName||'', qbo:'', paidDate:'', notes,
+    lines:[{desc: poName||'Order', qty:1, amt:amount}]
+  };
+  BILLS.unshift(newBill);
+  buildMetrics(); applyFilters(); renderOrdersView();
+  closeNewOrder();
+  document.getElementById('no-vendor').value='';
+  document.getElementById('no-poname').value='';
+  document.getElementById('no-category').value='';
+  document.getElementById('no-amount').value='';
+  document.getElementById('no-budget').value='';
+  document.getElementById('no-delivery').value='';
+  document.getElementById('no-toorder').value='';
+  document.getElementById('no-paymethod').value='';
+  document.getElementById('no-season').value='';
+  document.getElementById('no-notes').value='';
+  document.getElementById('no-budget-hint').textContent='';
+  updateOrdersBadge();
+  toast('Order created — '+(poName||vendor));
+}
+
+function renderOrdersView(){
+  const orders = BILLS.filter(b=>b.status==='ordered'||b.status==='draft');
+
+  // Metrics
+  const metrics = document.getElementById('orders-metrics');
+  if(metrics){
+    const active  = orders.filter(b=>b.status==='ordered');
+    const drafts  = orders.filter(b=>b.status==='draft');
+    const invoiced= active.filter(b=>{
+      const children=BILLS.filter(c=>c.poName===b.poName&&c.status!=='ordered'&&c.status!=='draft');
+      return children.length>0;
+    });
+    const totalOrdered = active.reduce((s,b)=>s+b.amount,0);
+    metrics.innerHTML = [
+      {label:'Active orders', val:active.length,    sub:'placed with vendors'},
+      {label:'Draft orders',  val:drafts.length,    sub:'not yet placed'},
+      {label:'Est. committed',val:fmt(totalOrdered),sub:'across active orders', mono:true},
+    ].map(m=>`<div class="metric">
+      <div class="metric-label">${m.label}</div>
+      <div class="metric-val" style="${m.mono?'font-size:16px;padding-top:3px':''}">
+        ${m.val}
+      </div>
+      <div class="metric-sub">${m.sub}</div>
+    </div>`).join('');
+  }
+
+  // Table
+  const tbody = document.getElementById('orders-tbody');
+  if(!tbody) return;
+
+  const sorted = [...orders].sort((a,b)=>{
+    let va=a[ordersSortCol]||'', vb=b[ordersSortCol]||'';
+    if(ordersSortCol==='amount'){va=a.amount;vb=b.amount;}
+    if(typeof va==='string')va=va.toLowerCase(),vb=vb.toLowerCase();
+    return ordersSortDir==='asc'?(va>vb?1:-1):(va<vb?1:-1);
+  });
+
+  if(!sorted.length){
+    tbody.innerHTML='<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--text-3)">No orders yet — create one with the button above</td></tr>';
+    return;
+  }
+
+  const sm = STATUS_META;
+  tbody.innerHTML = sorted.map(b=>{
+    const children = BILLS.filter(c=>c.poName===b.poName&&b.poName&&c.id!==b.id&&c.status!=='ordered'&&c.status!=='draft');
+    const invoicedAmt = children.reduce((s,c)=>s+c.amount,0);
+    const remaining   = Math.max(0,b.amount-invoicedAmt);
+    const pct         = b.amount>0?Math.min(100,Math.round(invoicedAmt/b.amount*100)):0;
+
+    const invoicedCell = children.length
+      ? `<div style="font-size:12px;font-weight:500">${fmt(invoicedAmt)}</div>
+         <div style="margin-top:4px;height:3px;background:var(--surface-2);border-radius:2px;width:80px">
+           <div style="height:100%;background:${pct>=100?'var(--green)':'var(--blue)'};border-radius:2px;width:${pct}%"></div>
+         </div>
+         <div style="font-size:10px;color:var(--text-3);margin-top:2px">${pct}% of ${fmt(b.amount)}</div>`
+      : `<span style="font-size:12px;color:var(--text-3)">No invoices yet</span>`;
+
+    return `<tr style="border-bottom:0.5px solid var(--border);cursor:pointer" onclick="openPanel(BILLS.find(x=>x.id===${b.id}));showView('bills')">
+      <td style="padding:11px 14px;font-weight:500">${b.poName||'—'}</td>
+      <td style="padding:11px 14px;font-size:13px">${b.vendor}</td>
+      <td style="padding:11px 14px"><span class="cat">${b.category||'—'}</span></td>
+      <td style="padding:11px 14px;font-size:12px;color:var(--text-2)">${fmtDate(b.date)}</td>
+      <td style="padding:11px 14px"><span class="status ${sm[b.status].cls}">${sm[b.status].label}</span></td>
+      <td style="padding:11px 14px">${invoicedCell}</td>
+      <td style="padding:11px 14px;text-align:right;font-family:'DM Mono',monospace;font-weight:500">${fmt(b.amount)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function sortOrders(col){
+  if(ordersSortCol===col) ordersSortDir=ordersSortDir==='asc'?'desc':'asc';
+  else{ ordersSortCol=col; ordersSortDir='asc'; }
+  renderOrdersView();
+}
+
+function updateOrderBudgetHint(){
+  const amount = parseFloat(document.getElementById('no-amount').value)||0;
+  const budget = parseFloat(document.getElementById('no-budget').value)||0;
+  const hint   = document.getElementById('no-budget-hint');
+  if(!budget||!amount){ hint.textContent=''; return; }
+  const diff = budget - amount;
+  const pct  = Math.round(Math.abs(diff)/budget*100);
+  if(diff>=0){
+    hint.textContent = '$'+diff.toFixed(2)+' under budget ('+pct+'%)';
+    hint.style.color = 'var(--green)';
+  } else {
+    hint.textContent = '$'+Math.abs(diff).toFixed(2)+' over budget ('+pct+'%)';
+    hint.style.color = 'var(--red)';
+  }
+}
+
+function updateOrdersBadge(){
+  const badge = document.getElementById('orders-badge');
+  if(badge) badge.textContent = BILLS.filter(b=>b.status==='ordered').length;
+}
+
+updateOrdersBadge();
+
+const _origShowView=showView;
+showView=function(name){
+  ['bills','enter','orders','vendors','add-vendor','qbo','categories'].forEach(v=>{
+    const el=document.getElementById('view-'+v);
+    if(el)el.style.display=v===name?'flex':'none';
+  });
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
+  const navMap={bills:0,enter:1,vendors:2,'add-vendor':2,qbo:3,categories:4};
+  const navItems=document.querySelectorAll('.nav-item');
+  if(navItems[navMap[name]])navItems[navMap[name]].classList.add('active');
+  if(name==='vendors')renderVendorGrid();
+  if(name==='orders')renderOrdersView();
+  if(name!=='bills'&&name!=='add-vendor')closePanel();
+};
+
+renderVendorGrid();
+
+// ── Calendar ──────────────────────────────────────────────────────────────────
+
+let calWindowDays = 7;
+let calStartDate  = null;
+let calMode       = 'week';
+let billsView     = 'list';
+
+function setBillsView(mode){
+  billsView = mode;
+  const tableWrap = document.querySelector('#view-bills .table-wrap');
+  const filtersEl = document.querySelector('#view-bills .filters');
+  const calEl     = document.getElementById('cal-container');
+  const btnList   = document.getElementById('view-toggle-list');
+  const btnCal    = document.getElementById('view-toggle-cal');
+  if(mode==='list'){
+    if(tableWrap) tableWrap.style.display='';
+    if(filtersEl) filtersEl.style.display='';
+    if(calEl)     calEl.style.display='none';
+    if(btnList){btnList.style.background='var(--text)';btnList.style.color='#fff';}
+    if(btnCal) {btnCal.style.background='transparent';btnCal.style.color='';}
+  } else {
+    if(tableWrap) tableWrap.style.display='none';
+    if(filtersEl) filtersEl.style.display='none';
+    if(calEl)     calEl.style.display='';
+    if(btnList){btnList.style.background='transparent';btnList.style.color='';}
+    if(btnCal) {btnCal.style.background='var(--text)';btnCal.style.color='#fff';}
+    if(!calStartDate) calStartDate = startOfWeek(new Date());
+    renderCalendar();
+  }
+}
+
+function startOfWeek(d){
+  const r=new Date(d); r.setDate(r.getDate()-r.getDay()+1); r.setHours(0,0,0,0); return r;
+}
+function addDays(d,n){ const r=new Date(d); r.setDate(r.getDate()+n); return r; }
+function isoDate(d){ return d.toISOString().split('T')[0]; }
+function sameDay(a,b){ return isoDate(a)===isoDate(b); }
+
+function setCalWindow(mode){
+  calMode=mode;
+  document.querySelectorAll('.cal-wbtn').forEach(b=>b.classList.remove('active-wbtn'));
+  const btn=document.getElementById('cal-w-'+mode);
+  if(btn) btn.classList.add('active-wbtn');
+  const cw=document.getElementById('cal-custom-wrap');
+  if(mode==='custom'){cw.style.display='flex';return;}
+  cw.style.display='none';
+  calWindowDays={week:7,'2week':14,month:31}[mode]||7;
+  if(!calStartDate) calStartDate=startOfWeek(new Date());
+  renderCalendar();
+}
+
+function shiftCal(dir,cmd){
+  if(cmd==='today') calStartDate=startOfWeek(new Date());
+  else calStartDate=addDays(calStartDate,dir*calWindowDays);
+  renderCalendar();
+}
+
+function renderCalendar(){
+  const today=new Date(); today.setHours(0,0,0,0);
+  let start,end;
+  if(calMode==='custom'){
+    const s=document.getElementById('cal-start').value;
+    const e=document.getElementById('cal-end').value;
+    if(!s||!e)return;
+    start=new Date(s+'T00:00:00'); end=new Date(e+'T00:00:00');
+    calWindowDays=Math.round((end-start)/(864e5))+1;
+  } else {
+    if(!calStartDate) calStartDate=startOfWeek(today);
+    start=new Date(calStartDate); end=addDays(start,calWindowDays-1);
+  }
+
+  // Date array
+  const dates=[]; let cur=new Date(start);
+  while(cur<=end){dates.push(new Date(cur));cur=addDays(cur,1);}
+
+  // Range label
+  const fl=d=>d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  const yr=end.getFullYear()!==today.getFullYear()?' '+end.getFullYear():'';
+  document.getElementById('cal-range-label').textContent=fl(start)+' – '+fl(end)+yr;
+
+  // Vendors
+  const vendors=[...new Set(BILLS.map(b=>b.vendor))].sort();
+
+  // Index bills by vendor|date
+  const idx={};
+  BILLS.forEach(b=>{
+    const dk=b.due||b.date; if(!dk) return;
+    const d=new Date(dk+'T00:00:00');
+    if(d<start||d>end) return;
+    const k=b.vendor+'|'+isoDate(d);
+    if(!idx[k])idx[k]=[];
+    idx[k].push(b);
+  });
+
+  // Header
+  const thV=`<th class="cal-vendor-cell" style="font-size:11px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em">Vendor</th>`;
+  const thD=dates.map(d=>{
+    const isT=sameDay(d,today), isW=d.getDay()===0||d.getDay()===6;
+    const dn=d.toLocaleDateString('en-US',{weekday:'short'});
+    const showM=d.getDate()===1||sameDay(d,start);
+    const ml=d.toLocaleDateString('en-US',{month:'short'});
+    return `<th class="cal-date-header${isW?' cal-date-weekend':''}">
+      <div class="cal-date-label">${dn}${showM?' · '+ml:''}</div>
+      <div style="display:inline-block;width:26px;height:26px;line-height:26px;text-align:center;margin-top:3px;border-radius:50%;${isT?'background:var(--text)':''}">
+        <span class="cal-date-day" style="color:${isT?'#fff':'var(--text)'}">${d.getDate()}</span>
+      </div>
+    </th>`;
+  }).join('');
+  const thTot=`<th style="padding:8px 10px;text-align:right;border-bottom:0.5px solid var(--border-strong);background:var(--surface-2);font-size:11px;font-weight:500;color:var(--text-3);white-space:nowrap;position:sticky;right:0;z-index:2">Row total</th>`;
+  document.getElementById('cal-head').innerHTML=`<tr>${thV}${thD}${thTot}</tr>`;
+
+  // Body
+  const colTotals={};
+  dates.forEach(d=>{colTotals[isoDate(d)]=0;});
+  const CHIP_MAX=3;
+
+  document.getElementById('cal-body').innerHTML=vendors.map(vendor=>{
+    let rowTotal=0;
+    const cells=dates.map(d=>{
+      const isW=d.getDay()===0||d.getDay()===6, isT=sameDay(d,today);
+      const bills=idx[vendor+'|'+isoDate(d)]||[];
+      bills.forEach(b=>{rowTotal+=b.amount;colTotals[isoDate(d)]+=b.amount;});
+      const chips=bills.slice(0,CHIP_MAX).map(b=>`<span class="cal-bill-chip chip-${b.status}" onclick="event.stopPropagation();openPanel(BILLS.find(x=>x.id===${b.id}));setBillsView('list')" title="${b.invoice||b.poName||'—'} · ${fmt(b.amount)}">${b.invoice||b.poName||'—'} <strong>${fmt(b.amount)}</strong></span>`).join('');
+      const more=bills.length>CHIP_MAX?`<span class="cal-overflow-chip" onclick="setBillsView('list')">+${bills.length-CHIP_MAX} more</span>`:'';
+      return `<td class="cal-cell${isW?' cal-cell-weekend':''}${isT?' cal-cell-today':''}">${chips}${more}</td>`;
+    }).join('');
+    return `<tr><td class="cal-vendor-cell">${vendor}</td>${cells}<td style="padding:6px 10px;text-align:right;border-bottom:0.5px solid var(--border);font-family:'DM Mono',monospace;font-size:11px;color:var(--text-2);white-space:nowrap;position:sticky;right:0;background:var(--surface)">${rowTotal>0?fmt(rowTotal):'—'}</td></tr>`;
+  }).join('');
+
+  // Footer totals
+  const grandTotal=Object.values(colTotals).reduce((s,v)=>s+v,0);
+  document.getElementById('cal-foot').innerHTML=`<tr>
+    <td class="cal-vendor-total">Daily total</td>
+    ${dates.map(d=>`<td class="cal-total-cell">${colTotals[isoDate(d)]>0?fmt(colTotals[isoDate(d)]):'—'}</td>`).join('')}
+    <td style="padding:6px 10px;text-align:right;border-top:1px solid var(--border-strong);background:var(--surface-2);font-family:'DM Mono',monospace;font-size:11px;font-weight:600;position:sticky;right:0;white-space:nowrap">${fmt(grandTotal)}</td>
+  </tr>`;
+}
+
+</script>
+</body>
+</html>
